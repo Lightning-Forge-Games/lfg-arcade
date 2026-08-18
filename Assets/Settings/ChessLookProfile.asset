@@ -19,6 +19,34 @@ MonoBehaviour:
   tint:
     m_OverrideState: 1
     m_Value: 0
+--- !u!114 &-5534472987918247066
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f034cba68ab55e046ae1445a42f18c0e, type: 3}
+  m_Name: IndirectLightingController
+  m_EditorClassIdentifier: Unity.RenderPipelines.HighDefinition.Runtime::UnityEngine.Rendering.HighDefinition.IndirectLightingController
+  active: 1
+  indirectDiffuseLightingMultiplier:
+    m_OverrideState: 1
+    m_Value: 0.3
+  indirectDiffuseLightingLayers:
+    m_OverrideState: 1
+    m_Value: 65535
+  reflectionLightingMultiplier:
+    m_OverrideState: 1
+    m_Value: 0.65
+  reflectionLightingLayers:
+    m_OverrideState: 1
+    m_Value: 65535
+  reflectionProbeIntensityMultiplier:
+    m_OverrideState: 1
+    m_Value: 1
 --- !u!114 &-2752859694272117203
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -201,7 +229,7 @@ MonoBehaviour:
     m_Value: 0
   exposure:
     m_OverrideState: 1
-    m_Value: 0
+    m_Value: 14.9
   multiplier:
     m_OverrideState: 1
     m_Value: 1
@@ -225,13 +253,13 @@ MonoBehaviour:
     m_Value: 0
   top:
     m_OverrideState: 1
-    m_Value: {r: 0.085, g: 0.105, b: 0.145, a: 1}
+    m_Value: {r: 0.3, g: 0.3, b: 0.305, a: 1}
   middle:
     m_OverrideState: 1
-    m_Value: {r: 0.19, g: 0.17, b: 0.16, a: 1}
+    m_Value: {r: 0.36, g: 0.358, b: 0.355, a: 1}
   bottom:
     m_OverrideState: 1
-    m_Value: {r: 0.055, g: 0.048, b: 0.045, a: 1}
+    m_Value: {r: 0.235, g: 0.233, b: 0.23, a: 1}
   gradientDiffusion:
     m_OverrideState: 1
     m_Value: 1.7
@@ -413,6 +441,7 @@ MonoBehaviour:
   - {fileID: 5267301928367049646}
   - {fileID: 5107877765450995318}
   - {fileID: 3820938356680802511}
+  - {fileID: -5534472987918247066}
 --- !u!114 &3820938356680802511
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -649,7 +678,7 @@ MonoBehaviour:
     m_Value: {x: 0.5, y: 0.5}
   intensity:
     m_OverrideState: 1
-    m_Value: 0.34
+    m_Value: 0.18
   smoothness:
     m_OverrideState: 1
     m_Value: 0.5
