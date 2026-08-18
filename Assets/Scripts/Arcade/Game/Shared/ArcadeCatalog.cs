@@ -64,6 +64,7 @@ namespace LightningForge.Arcade.Game
                 Title = "Draughts",
                 Blurb = "English rules. Captures are forced, and reaching the back rank crowns.",
                 Accent = new Color(0.65f, 0.35f, 0.30f),
+                Playable = true,
             },
             new ArcadeGameInfo
             {

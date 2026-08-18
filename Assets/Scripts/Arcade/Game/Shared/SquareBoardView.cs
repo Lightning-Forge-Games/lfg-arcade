@@ -72,6 +72,25 @@ namespace LightningForge.Arcade.Game
             if (squareTransforms[0] == null) Build();
         }
 
+        /// <summary>
+        /// Supplies the board's materials in code and rebuilds.
+        ///
+        /// Chess assigns these through the inspector because it had authored materials
+        /// before the arcade existed. Games added since build their look procedurally, and
+        /// without this they would each need a set of material assets created and wired by
+        /// hand before anything could appear on screen.
+        /// </summary>
+        public void Configure(Material light, Material dark, Material highlight,
+            Material selection, Material frame)
+        {
+            lightSquareMaterial = light;
+            darkSquareMaterial = dark;
+            highlightMaterial = highlight;
+            selectionMaterial = selection;
+            frameMaterial = frame;
+            Build();
+        }
+
         /// <summary>Creates the 64 squares. Safe to call again; existing squares are replaced.</summary>
         public void Build()
         {

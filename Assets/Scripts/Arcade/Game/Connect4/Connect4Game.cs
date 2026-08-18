@@ -344,11 +344,14 @@ namespace LightningForge.Arcade.Game.Connect4
             hoverGhost.SetActive(show);
             if (!show) return;
 
-            // Sits above the column it would fall into, in the colour about to be played.
+            // Sits just clear of the top rail, in the colour about to be played, and dimmed
+            // so it reads as a preview rather than a disc already in the frame. Any higher
+            // and it drifts off the top of the screen on a short window.
+            Color colour = RedToMove ? RedDisc : YellowDisc;
             hoverGhost.GetComponent<MeshRenderer>().sharedMaterial =
-                ArcadeMaterials.Get(RedToMove ? RedDisc : YellowDisc, 0.45f);
+                ArcadeMaterials.Get(colour * 0.55f, 0.35f);
             hoverGhost.transform.localPosition =
-                CellPosition(hoveredColumn, Connect4Board.Rows) + Vector3.up * 0.55f;
+                CellPosition(hoveredColumn, Connect4Board.Rows) + Vector3.up * 0.12f;
         }
 
         void RefreshDiscs()
