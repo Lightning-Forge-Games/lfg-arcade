@@ -45,6 +45,21 @@ namespace LightningForge.Chess.Game
         public GameStatus Status { get; private set; } = GameStatus.Ongoing;
         public bool IsAnimating => running != null;
 
+        /// <summary>
+        /// Which side this client may move. Hot seat leaves this at <see cref="ControlMode.Both"/>;
+        /// an online session sets it so you cannot move your opponent's pieces.
+        /// </summary>
+        public ControlMode Control { get; set; } = ControlMode.Both;
+
+        bool CanMoveNow()
+        {
+            if (Control == ControlMode.Both) return true;
+            if (board == null) return false;
+            return Control == ControlMode.WhiteOnly
+                ? board.SideToMove == PieceColor.White
+                : board.SideToMove == PieceColor.Black;
+        }
+
         /// <summary>True while waiting for the player to choose a promotion piece.</summary>
         public bool AwaitingPromotion => pendingPromotionFrom != Square.None;
 
@@ -134,6 +149,7 @@ namespace LightningForge.Chess.Game
             // Ignore picks mid-animation: the board has already advanced, so acting now
             // would let a second move start before the first finished moving on screen.
             if (IsAnimating || AwaitingPromotion || GameStatusEvaluator.IsGameOver(Status)) return;
+            if (!CanMoveNow()) return;
 
             if (selectedSquare != Square.None)
             {

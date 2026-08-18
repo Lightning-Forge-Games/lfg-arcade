@@ -58,3 +58,6 @@ crashlytics-build.properties
 
 # Build output
 /Builds/
+
+# Photon SDK (large, redownload from the dashboard)
+# Comment this out if you prefer the SDK vendored in the repo
