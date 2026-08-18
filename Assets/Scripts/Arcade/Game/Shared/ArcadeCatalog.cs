@@ -92,6 +92,7 @@ namespace LightningForge.Arcade.Game
                 Accent = new Color(0.40f, 0.65f, 0.55f),
                 FirstSeat = "Player 1",
                 SecondSeat = "Player 2",
+                Playable = true,
             },
             new ArcadeGameInfo
             {
