@@ -27,12 +27,23 @@ namespace LightningForge.Chess.Game
         [Tooltip("Optional authored square. When unset, squares are built from primitives.")]
         [SerializeField] GameObject squarePrefab;
 
+        [Header("Frame")]
+        [SerializeField] bool buildFrame = true;
+        [SerializeField] Material frameMaterial;
+
+        [Tooltip("Width of the border running around the playing surface.")]
+        [SerializeField] float frameWidth = 0.55f;
+
+        [Tooltip("Thickness of the slab the squares sit on.")]
+        [SerializeField] float plinthThickness = 0.22f;
+
         readonly Transform[] squareTransforms = new Transform[Square.Count];
         readonly Renderer[] squareRenderers = new Renderer[Square.Count];
         readonly Material[] baseMaterials = new Material[Square.Count];
         readonly HashSet<int> highlighted = new HashSet<int>();
 
         int selectedSquare = Square.None;
+        Transform frameTransform;
 
         public float SquareSize => squareSize;
         public int SelectedSquare => selectedSquare;
@@ -73,6 +84,54 @@ namespace LightningForge.Chess.Game
                 squareRenderers[square] = renderer;
                 baseMaterials[square] = renderer != null ? renderer.sharedMaterial : null;
             }
+
+            if (buildFrame) BuildFrame();
+        }
+
+        /// <summary>
+        /// Surrounds the playing surface with a border and sets it on a plinth, so the board
+        /// reads as a single object rather than 64 tiles floating in space.
+        /// </summary>
+        void BuildFrame()
+        {
+            if (frameTransform != null) DestroySquare(frameTransform.gameObject);
+
+            var frame = new GameObject("Frame");
+            frame.transform.SetParent(transform, false);
+            frameTransform = frame.transform;
+
+            float board = 8f * squareSize;
+            float outer = board + frameWidth * 2f;
+            float railY = squareThickness * 0.5f;
+            float railHeight = squareThickness * 1.35f;
+            float offset = (board + frameWidth) * 0.5f;
+
+            // Four rails. The long pair spans the full outer width so the corners meet cleanly.
+            AddFramePart(frame.transform, "Rail_North",
+                new Vector3(0f, railY, offset), new Vector3(outer, railHeight, frameWidth));
+            AddFramePart(frame.transform, "Rail_South",
+                new Vector3(0f, railY, -offset), new Vector3(outer, railHeight, frameWidth));
+            AddFramePart(frame.transform, "Rail_East",
+                new Vector3(offset, railY, 0f), new Vector3(frameWidth, railHeight, board));
+            AddFramePart(frame.transform, "Rail_West",
+                new Vector3(-offset, railY, 0f), new Vector3(frameWidth, railHeight, board));
+
+            // Plinth underneath everything.
+            AddFramePart(frame.transform, "Plinth",
+                new Vector3(0f, -squareThickness * 0.5f - plinthThickness * 0.5f, 0f),
+                new Vector3(outer, plinthThickness, outer));
+        }
+
+        void AddFramePart(Transform parent, string name, Vector3 localPosition, Vector3 scale)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = name;
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPosition;
+            go.transform.localScale = scale;
+
+            var renderer = go.GetComponent<Renderer>();
+            if (renderer != null && frameMaterial != null) renderer.sharedMaterial = frameMaterial;
         }
 
         GameObject CreatePrimitiveSquare()
