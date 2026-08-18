@@ -214,15 +214,18 @@ namespace LightningForge.Chess.EditorTools
                         new Vector2(0.065f, 0.83f), new Vector2(0f, 0.835f)
                     };
 
-                // Bulbous crown carrying a cross.
+                // Bulbous crown carrying a bold cross. The cross was previously too small
+                // to read at playing size, so the arms and bar are deliberately chunky.
                 case PieceType.King:
                     return new[]
                     {
                         new Vector2(0f, 0f), new Vector2(0.40f, 0f), new Vector2(0.40f, 0.09f),
                         new Vector2(0.30f, 0.14f), new Vector2(0.225f, 0.22f), new Vector2(0.235f, 0.42f),
-                        new Vector2(0.35f, 0.55f), new Vector2(0.315f, 0.68f), new Vector2(0.19f, 0.755f),
-                        new Vector2(0.105f, 0.755f), new Vector2(0.105f, 0.835f), new Vector2(0.052f, 0.835f),
-                        new Vector2(0.052f, 0.96f), new Vector2(0f, 0.96f)
+                        new Vector2(0.355f, 0.55f), new Vector2(0.305f, 0.665f), new Vector2(0.165f, 0.705f),
+                        new Vector2(0.058f, 0.705f),                                  // step in to the bar
+                        new Vector2(0.058f, 0.795f), new Vector2(0.150f, 0.795f),     // out along the arm
+                        new Vector2(0.150f, 0.880f), new Vector2(0.058f, 0.880f),     // back in
+                        new Vector2(0.058f, 1.0f), new Vector2(0f, 1.0f)              // up to the tip
                     };
 
                 default:
@@ -231,46 +234,134 @@ namespace LightningForge.Chess.EditorTools
         }
 
         /// <summary>
-        /// The knight is drawn as a full outline: a horse head has no axis of symmetry.
-        /// Wound anticlockwise starting at the bottom left of the base.
+        /// The knight is the only piece with no axis of symmetry, so it is drawn as an
+        /// explicit outline rather than a mirrored profile. Angular rather than curved,
+        /// facing left, with a concave wedge under the jaw and a pointed ear, which is
+        /// what makes a knight read instantly at icon size.
         /// </summary>
-        static Vector2[] KnightOutline()
+        static Vector2[] KnightBody()
         {
             return new[]
             {
-                new Vector2(-0.38f, 0f),   new Vector2(0.38f, 0f),
-                new Vector2(0.38f, 0.085f), new Vector2(0.28f, 0.13f),
-                new Vector2(0.245f, 0.235f), new Vector2(0.30f, 0.40f),
-                new Vector2(0.375f, 0.545f), new Vector2(0.35f, 0.65f),
-                new Vector2(0.235f, 0.70f),  new Vector2(0.175f, 0.775f),
-                new Vector2(0.10f, 0.925f),  new Vector2(0.02f, 0.80f),
-                new Vector2(-0.095f, 0.885f), new Vector2(-0.185f, 0.775f),
-                new Vector2(-0.25f, 0.60f),  new Vector2(-0.245f, 0.42f),
-                new Vector2(-0.145f, 0.26f), new Vector2(-0.20f, 0.16f),
-                new Vector2(-0.29f, 0.13f)
+                new Vector2(-0.315f, 0.155f),   // bottom left of the chest
+                new Vector2(-0.30f, 0.36f),
+                new Vector2(-0.255f, 0.455f),   // throat
+                new Vector2(-0.15f, 0.545f),    // wedge cut under the jaw, points inward
+                new Vector2(-0.335f, 0.585f),
+                new Vector2(-0.455f, 0.645f),   // muzzle tip
+                new Vector2(-0.395f, 0.735f),   // bridge of the nose
+                new Vector2(-0.185f, 0.775f),   // forehead
+                new Vector2(-0.055f, 0.985f),   // ear
+                new Vector2(0.055f, 0.80f),     // behind the ear
+                new Vector2(0.215f, 0.735f),    // mane
+                new Vector2(0.305f, 0.535f),    // back of the neck
+                new Vector2(0.325f, 0.315f),
+                new Vector2(0.295f, 0.155f)     // bottom right of the chest
             };
+        }
+
+        /// <summary>
+        /// The bishop carries the traditional diagonal slot cut into its mitre, so like the
+        /// knight it needs an explicit outline: a mirrored half profile is symmetric and
+        /// cannot express a cut on one side only. Wound anticlockwise from the base.
+        /// </summary>
+        static Vector2[] BishopOutline()
+        {
+            return new[]
+            {
+                new Vector2(-0.38f, 0f), new Vector2(0.38f, 0f),
+                new Vector2(0.38f, 0.08f), new Vector2(0.28f, 0.13f),
+                new Vector2(0.21f, 0.21f), new Vector2(0.245f, 0.36f),
+                new Vector2(0.265f, 0.52f), new Vector2(0.215f, 0.63f),
+                new Vector2(0.125f, 0.71f), new Vector2(0.10f, 0.765f),
+                new Vector2(0.135f, 0.825f), new Vector2(0.09f, 0.875f),
+                new Vector2(0f, 0.89f),
+                new Vector2(-0.09f, 0.875f), new Vector2(-0.135f, 0.825f),
+                new Vector2(-0.10f, 0.765f), new Vector2(-0.125f, 0.71f),
+
+                // The slot: dart inward and back out so the edge carries a diagonal notch.
+                new Vector2(-0.130f, 0.725f),
+                new Vector2(-0.015f, 0.652f),
+                new Vector2(-0.170f, 0.565f),
+
+                new Vector2(-0.235f, 0.545f), new Vector2(-0.265f, 0.46f),
+                new Vector2(-0.245f, 0.36f), new Vector2(-0.21f, 0.21f),
+                new Vector2(-0.28f, 0.13f), new Vector2(-0.38f, 0.08f)
+            };
+        }
+
+        /// <summary>Separate plinth under the knight, as in a cut paper icon.</summary>
+        static Vector2[] KnightBase()
+        {
+            return new[]
+            {
+                new Vector2(-0.40f, 0f), new Vector2(0.40f, 0f),
+                new Vector2(0.325f, 0.105f), new Vector2(-0.325f, 0.105f)
+            };
+        }
+
+        /// <summary>Appends one mesh onto another, offsetting the triangle indices.</summary>
+        static Mesh Merge(Mesh a, Mesh b)
+        {
+            var verts = new List<Vector3>(a.vertices);
+            var tris = new List<int>(a.triangles);
+
+            int offset = verts.Count;
+            verts.AddRange(b.vertices);
+            int[] bTris = b.triangles;
+            for (int i = 0; i < bTris.Length; i++) tris.Add(bTris[i] + offset);
+
+            var mesh = new Mesh();
+            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            mesh.SetVertices(verts);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
         }
 
         static Mesh BuildIcon(PieceType type)
         {
-            Vector2[] outline = type == PieceType.Knight ? KnightOutline() : Mirror(HalfProfile(type));
-            Mesh mesh = Extrude(outline, IconThickness * 0.5f);
+            Mesh mesh;
+            if (type == PieceType.Knight)
+            {
+                // Body and plinth are separate shapes, so they are extruded and merged.
+                mesh = Merge(
+                    Extrude(KnightBody(), IconThickness * 0.5f),
+                    Extrude(KnightBase(), IconThickness * 0.5f));
+            }
+            else if (type == PieceType.Bishop)
+            {
+                mesh = Extrude(BishopOutline(), IconThickness * 0.5f);
+            }
+            else
+            {
+                mesh = Extrude(Mirror(HalfProfile(type)), IconThickness * 0.5f);
+            }
 
-            // Normalise so every icon reads at the same visual weight on its token.
+            // Normalise so every icon reads at the same visual weight on its token, with a
+            // per piece nudge: the pawn is a squat, wide shape and looks oversized next to
+            // the taller pieces when they are all scaled to an identical height.
+            float target = IconHeight * IconScaleFor(type);
             Bounds b = mesh.bounds;
-            float scale = b.size.y > 0.0001f ? IconHeight / b.size.y : 1f;
+            float scale = b.size.y > 0.0001f ? target / b.size.y : 1f;
             Vector3[] verts = mesh.vertices;
             for (int i = 0; i < verts.Length; i++)
             {
                 verts[i] = new Vector3(
                     (verts[i].x - b.center.x) * scale,
-                    (verts[i].y - b.min.y) * scale - IconHeight * 0.5f,
+                    (verts[i].y - b.min.y) * scale - target * 0.5f,
                     verts[i].z);
             }
             mesh.vertices = verts;
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        static float IconScaleFor(PieceType type)
+        {
+            return type == PieceType.Pawn ? 0.85f : 1f;
         }
 
         /// <summary>Turns a half profile (x = radius, y = height) into a closed silhouette.</summary>
