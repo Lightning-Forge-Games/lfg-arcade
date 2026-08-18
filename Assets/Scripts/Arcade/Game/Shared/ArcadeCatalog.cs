@@ -98,9 +98,10 @@ namespace LightningForge.Arcade.Game
             {
                 Id = ArcadeGameId.Snooker,
                 Title = "Snooker",
-                Blurb = "Reds and colours on a full table. One player for now.",
+                Blurb = "Reds and colours on a full table. Solo or pass the cue.",
                 Accent = new Color(0.35f, 0.60f, 0.40f),
                 SupportsOnline = false,
+                Playable = true,
             },
         };
 
