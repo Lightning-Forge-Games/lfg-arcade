@@ -280,6 +280,7 @@ GameObject:
   - component: {fileID: 653221819}
   - component: {fileID: 653221820}
   - component: {fileID: 653221821}
+  - component: {fileID: 653221822}
   m_Layer: 0
   m_Name: Chess Game
   m_TagString: Untagged
@@ -447,6 +448,26 @@ MonoBehaviour:
   fontSize: 2.2
   labelColor: {r: 0.74, g: 0.7, b: 0.62, a: 1}
   lift: 0.26
+--- !u!114 &653221822
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 653221814}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 648859946f302f84ab4baa3ebc399e2b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: LightningForge.Chess.Game::LightningForge.Chess.Game.CapturedPieceTray
+  controller: {fileID: 653221815}
+  boardView: {fileID: 653221817}
+  factory: {fileID: 653221816}
+  scale: 1
+  gap: 0.8
+  rowSpacing: 0.9
+  columnSpacing: 0.9
+  piecesPerColumn: 8
 --- !u!1 &829050092
 GameObject:
   m_ObjectHideFlags: 0
@@ -1071,6 +1092,7 @@ MonoBehaviour:
   overheadPitch: 71
   overheadFov: 38
   transitionSeconds: 0.5
+  boardHalfExtent: 5.1
   viewpoint: 0
   style: 0
 --- !u!1 &2067275724

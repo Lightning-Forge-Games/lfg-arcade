@@ -35,6 +35,7 @@ namespace LightningForge.Chess.Game
         readonly List<Move> legalMoves = new List<Move>();
         readonly List<Move> movesFromSelection = new List<Move>();
         readonly List<string> moveHistory = new List<string>();
+        readonly List<Piece> captured = new List<Piece>();
 
         Board board;
         int selectedSquare = Square.None;
@@ -86,6 +87,9 @@ namespace LightningForge.Chess.Game
 
         /// <summary>Moves played so far in algebraic notation, one entry per ply.</summary>
         public IReadOnlyList<string> MoveHistory => moveHistory;
+
+        /// <summary>Pieces taken so far, in the order they were captured.</summary>
+        public IReadOnlyList<Piece> Captured => captured;
 
         /// <summary>
         /// Respawns every piece view from the current board, without touching the game.
@@ -159,6 +163,7 @@ namespace LightningForge.Chess.Game
             pendingPromotionFrom = Square.None;
             pendingPromotionTo = Square.None;
             moveHistory.Clear();
+            captured.Clear();
             GameId++;
 
             RebuildPieceViews();
@@ -291,7 +296,10 @@ namespace LightningForge.Chess.Game
                 ? move.To + (mover == PieceColor.White ? -8 : 8)
                 : move.To;
 
-            GameObject capturedView = board[captureSquare].IsSome ? pieceViews[captureSquare] : null;
+            Piece capturedPiece = board[captureSquare];
+            if (capturedPiece.IsSome) captured.Add(capturedPiece);
+
+            GameObject capturedView = capturedPiece.IsSome ? pieceViews[captureSquare] : null;
             GameObject movingView = pieceViews[move.From];
 
             int rookFrom = Square.None;

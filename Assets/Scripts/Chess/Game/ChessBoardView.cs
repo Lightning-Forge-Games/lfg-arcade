@@ -50,6 +50,9 @@ namespace LightningForge.Chess.Game
 
         public float FrameWidth => frameWidth;
 
+        /// <summary>Local height of the surface pieces stand on.</summary>
+        public float SquareSurfaceHeight => squareThickness * 0.5f;
+
         /// <summary>
         /// Distance from the board centre to the middle of the frame band. Mirrors how the
         /// rails are positioned in <see cref="BuildFrame"/>, so anything placed here sits

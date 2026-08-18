@@ -136,8 +136,8 @@ namespace LightningForge.Chess.Game
             });
             controls.Add(pieceButton);
 
-            controls.Add(MakeControl("New Game", () => { if (controller != null) controller.NewGame(); Refresh(); }));
-
+            // No New Game control here: Quit to Menu leads straight back to setting one up,
+            // so a second route to the same thing is just clutter over the board.
             controls.Add(MakeControl("Quit to Menu", () =>
             {
                 if (titleScreen != null) titleScreen.QuitToMenu();
@@ -299,13 +299,15 @@ namespace LightningForge.Chess.Game
         {
             var button = new Button(() => onClick());
             button.text = text;
-            button.style.minWidth = 132f;
-            button.style.paddingLeft = 16f;
-            button.style.paddingRight = 16f;
-            button.style.paddingTop = 8f;
-            button.style.paddingBottom = 8f;
-            button.style.marginTop = 4f;
-            button.style.fontSize = 13f;
+            // Sized for fingers, not just cursors: roughly a 44px touch target.
+            button.style.minWidth = 148f;
+            button.style.minHeight = 42f;
+            button.style.paddingLeft = 18f;
+            button.style.paddingRight = 18f;
+            button.style.paddingTop = 11f;
+            button.style.paddingBottom = 11f;
+            button.style.marginTop = 6f;
+            button.style.fontSize = 14f;
             button.style.color = new Color(0.93f, 0.90f, 0.84f);
             button.style.backgroundColor = new Color(0.12f, 0.11f, 0.11f, 0.88f);
             SetBorderColor(button, new Color(0.42f, 0.33f, 0.22f, 1f));

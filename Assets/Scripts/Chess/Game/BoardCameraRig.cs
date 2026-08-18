@@ -45,6 +45,11 @@ namespace LightningForge.Chess.Game
         [Tooltip("Seconds to swing between viewpoints. Zero snaps.")]
         [SerializeField] float transitionSeconds = 0.45f;
 
+        [Tooltip("Half width of the board including its frame, used to keep it on screen.")]
+        [SerializeField] float boardHalfExtent = 5.1f;
+
+        float lastAspect;
+
         // Serialised so the chosen view survives an editor domain reload rather than
         // silently snapping back to the default mid-session.
         [SerializeField, HideInInspector] PieceColor viewpoint = PieceColor.White;
@@ -68,6 +73,16 @@ namespace LightningForge.Chess.Game
 
         void Start()
         {
+            Apply(true);
+            if (target != null) lastAspect = target.aspect;
+        }
+
+        void Update()
+        {
+            // Rotating a phone or resizing the browser changes how much board fits.
+            if (target == null || transition != null) return;
+            if (Mathf.Abs(target.aspect - lastAspect) < 0.01f) return;
+            lastAspect = target.aspect;
             Apply(true);
         }
 
@@ -127,10 +142,41 @@ namespace LightningForge.Chess.Game
             float pitch = angled ? angledPitch : overheadPitch;
             fov = angled ? angledFov : overheadFov;
 
+            // Pull back on narrow screens. Field of view is vertical, so a portrait phone
+            // sees far less width than a desktop and would otherwise crop the board.
+            float pullback = PullbackForAspect(fov);
+            height *= pullback;
+            distance *= pullback;
+
             // White sits at negative Z looking up the board; Black is the mirror image.
             float sign = viewpoint == PieceColor.White ? -1f : 1f;
             position = new Vector3(0f, height, distance * sign);
             rotation = Quaternion.Euler(pitch, viewpoint == PieceColor.White ? 0f : 180f, 0f);
+        }
+
+        /// <summary>
+        /// How much further back the camera must sit for the board to fit horizontally.
+        /// Returns 1 when the screen is wide enough, so desktop framing is untouched.
+        /// </summary>
+        float PullbackForAspect(float verticalFov)
+        {
+            if (target == null) return 1f;
+
+            float aspect = target.aspect;
+            if (aspect <= 0.01f) return 1f;
+
+            float halfVertical = verticalFov * 0.5f * Mathf.Deg2Rad;
+            float halfHorizontal = Mathf.Atan(Mathf.Tan(halfVertical) * aspect);
+            if (halfHorizontal <= 0.001f) return 1f;
+
+            float baseDistance = Mathf.Sqrt(
+                (style == BoardViewStyle.Angled ? angledHeight : overheadHeight) *
+                (style == BoardViewStyle.Angled ? angledHeight : overheadHeight) +
+                (style == BoardViewStyle.Angled ? angledDistance : overheadDistance) *
+                (style == BoardViewStyle.Angled ? angledDistance : overheadDistance));
+
+            float needed = boardHalfExtent / Mathf.Tan(halfHorizontal);
+            return needed > baseDistance ? needed / baseDistance : 1f;
         }
 
         IEnumerator Swing(Vector3 toPosition, Quaternion toRotation, float toFov)
