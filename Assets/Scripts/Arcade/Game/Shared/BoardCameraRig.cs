@@ -5,6 +5,24 @@ using UnityEngine;
 
 namespace LightningForge.Arcade.Game
 {
+    /// <summary>
+    /// An explicit camera placement, for boards the default framing does not suit.
+    /// Distance is measured along -Z from the focus point, matching the rig's convention
+    /// that the local player sits on the negative Z side.
+    /// </summary>
+    [Serializable]
+    public struct BoardFraming
+    {
+        public Vector3 Focus;
+        public float Height;
+        public float Distance;
+        public float Pitch;
+        public float Fov;
+
+        /// <summary>Half the board's width, so narrow screens still fit it all in.</summary>
+        public float HalfExtent;
+    }
+
     /// <summary>How steeply the board is viewed.</summary>
     public enum BoardViewStyle
     {
@@ -56,6 +74,7 @@ namespace LightningForge.Arcade.Game
         [SerializeField, HideInInspector] BoardViewStyle style = BoardViewStyle.Angled;
 
         Coroutine transition;
+        BoardFraming? framingOverride;
 
         public PieceColor Viewpoint => viewpoint;
         public BoardViewStyle Style => style;
@@ -84,6 +103,29 @@ namespace LightningForge.Arcade.Game
             if (Mathf.Abs(target.aspect - lastAspect) < 0.01f) return;
             lastAspect = target.aspect;
             Apply(true);
+        }
+
+        /// <summary>
+        /// Frames a board this rig was not designed for.
+        ///
+        /// The default placement assumes a flat board centred on the origin, viewed from
+        /// one end. Connect 4 stands upright and has no near or far side, so rather than
+        /// bend the chess framing until it fits, a game can state its own and hand it back
+        /// when it ends. Overridden framings do not flip with the viewpoint, because a
+        /// board both players read from the front has nothing to flip.
+        /// </summary>
+        public void OverrideFraming(BoardFraming framing)
+        {
+            framingOverride = framing;
+            Apply(!Application.isPlaying || transitionSeconds <= 0f);
+        }
+
+        /// <summary>Returns to the flat board framing the chess and draughts boards use.</summary>
+        public void ClearFramingOverride()
+        {
+            if (framingOverride == null) return;
+            framingOverride = null;
+            Apply(!Application.isPlaying || transitionSeconds <= 0f);
         }
 
         public void SetViewpoint(PieceColor side)
@@ -136,6 +178,17 @@ namespace LightningForge.Arcade.Game
 
         void GetPose(out Vector3 position, out Quaternion rotation, out float fov)
         {
+            if (framingOverride.HasValue)
+            {
+                BoardFraming f = framingOverride.Value;
+                fov = f.Fov;
+                float pull = Pullback(fov, f.HalfExtent,
+                    Mathf.Sqrt(f.Height * f.Height + f.Distance * f.Distance));
+                position = f.Focus + new Vector3(0f, f.Height * pull, -f.Distance * pull);
+                rotation = Quaternion.Euler(f.Pitch, 0f, 0f);
+                return;
+            }
+
             bool angled = style == BoardViewStyle.Angled;
             float height = angled ? angledHeight : overheadHeight;
             float distance = angled ? angledDistance : overheadDistance;
@@ -160,22 +213,24 @@ namespace LightningForge.Arcade.Game
         /// </summary>
         float PullbackForAspect(float verticalFov)
         {
+            float height = style == BoardViewStyle.Angled ? angledHeight : overheadHeight;
+            float distance = style == BoardViewStyle.Angled ? angledDistance : overheadDistance;
+            return Pullback(verticalFov, boardHalfExtent,
+                Mathf.Sqrt(height * height + distance * distance));
+        }
+
+        float Pullback(float verticalFov, float halfExtent, float baseDistance)
+        {
             if (target == null) return 1f;
 
             float aspect = target.aspect;
-            if (aspect <= 0.01f) return 1f;
+            if (aspect <= 0.01f || baseDistance <= 0.001f) return 1f;
 
             float halfVertical = verticalFov * 0.5f * Mathf.Deg2Rad;
             float halfHorizontal = Mathf.Atan(Mathf.Tan(halfVertical) * aspect);
             if (halfHorizontal <= 0.001f) return 1f;
 
-            float baseDistance = Mathf.Sqrt(
-                (style == BoardViewStyle.Angled ? angledHeight : overheadHeight) *
-                (style == BoardViewStyle.Angled ? angledHeight : overheadHeight) +
-                (style == BoardViewStyle.Angled ? angledDistance : overheadDistance) *
-                (style == BoardViewStyle.Angled ? angledDistance : overheadDistance));
-
-            float needed = boardHalfExtent / Mathf.Tan(halfHorizontal);
+            float needed = halfExtent / Mathf.Tan(halfHorizontal);
             return needed > baseDistance ? needed / baseDistance : 1f;
         }
 

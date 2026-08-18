@@ -33,6 +33,12 @@ namespace LightningForge.Arcade.Game
         /// <summary>Which catalogue entry this is, so the shell can find it by id.</summary>
         public abstract ArcadeGameId Id { get; }
 
+        /// <summary>
+        /// Whether the shared HUD should draw this game's status and controls. Chess brought
+        /// its own, with a move list and a promotion picker, and turns this off.
+        /// </summary>
+        public virtual bool UsesSharedHud => true;
+
         /// <summary>Raised whenever the status line should change.</summary>
         public event Action Changed;
 

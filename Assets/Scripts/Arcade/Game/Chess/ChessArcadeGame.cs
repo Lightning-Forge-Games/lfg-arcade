@@ -23,6 +23,9 @@ namespace LightningForge.Arcade.Game.Chess
 
         public override ArcadeGameId Id => ArcadeGameId.Chess;
 
+        /// <summary>Chess has its own HUD, with a move list, a captured tray and promotion.</summary>
+        public override bool UsesSharedHud => false;
+
         public override bool IsFinished =>
             controller != null && controller.Status != GameStatus.Ongoing;
 
