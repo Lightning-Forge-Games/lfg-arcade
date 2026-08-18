@@ -36,7 +36,11 @@ namespace LightningForge.Chess.Net
         {
             Build();
             if (session != null) session.Changed += Refresh;
-            if (titleScreen != null) titleScreen.ModeChosen += OnModeChosen;
+            if (titleScreen != null)
+            {
+                titleScreen.ModeChosen += OnModeChosen;
+                titleScreen.Quit += OnQuit;
+            }
             Refresh();
 
             // An invite link should land the player in that match without making them
@@ -55,10 +59,20 @@ namespace LightningForge.Chess.Net
         void OnDisable()
         {
             if (session != null) session.Changed -= Refresh;
-            if (titleScreen != null) titleScreen.ModeChosen -= OnModeChosen;
+            if (titleScreen != null)
+            {
+                titleScreen.ModeChosen -= OnModeChosen;
+                titleScreen.Quit -= OnQuit;
+            }
         }
 
         void OnModeChosen(GameMode mode) => Refresh();
+
+        /// <summary>Leaving to the menu must also leave the Photon match.</summary>
+        void OnQuit()
+        {
+            if (session != null && session.IsConnected) session.Leave();
+        }
 
         /// <summary>The lobby is only meaningful once online play has been chosen.</summary>
         bool ShouldShow =>

@@ -6,32 +6,48 @@ using UnityEngine.UIElements;
 namespace LightningForge.Chess.Game
 {
     /// <summary>
-    /// Title and mode selection, shown over the board on launch.
+    /// Title and mode selection, shown over the board on launch and returned to when the
+    /// player quits a game.
     ///
     /// Implemented as an overlay in the same scene rather than a separate scene so the
-    /// board is already lit and composed behind it, and so an invite link can skip
-    /// straight into a match without a scene load in between.
+    /// board is already lit and composed behind it, and so an invite link can go straight
+    /// into a match without a scene load in between.
+    ///
+    /// The flow is one panel at a time: Home, then Setup for single player, and Back
+    /// always returns to the previous step rather than dumping the player at the start.
     /// </summary>
     [RequireComponent(typeof(UIDocument))]
     public class TitleScreen : MonoBehaviour
     {
+        enum Page
+        {
+            Home,
+            SinglePlayerSetup
+        }
+
         [SerializeField] ChessGameController controller;
         [SerializeField] ChessAiPlayer ai;
         [SerializeField] ChessHud hud;
         [SerializeField] BoardCameraRig cameraRig;
 
-        [Tooltip("Title shown on the front screen.")]
         [SerializeField] string gameTitle = "CHESS";
 
         UIDocument document;
-        VisualElement root;
-        VisualElement titlePanel;
-        VisualElement difficultyPanel;
+        VisualElement scrim;
+        VisualElement homePage;
+        VisualElement setupPage;
+        Label setupSummary;
+
+        Difficulty chosenDifficulty = Difficulty.Medium;
+        PieceColor chosenColour = PieceColor.White;
 
         public GameMode Mode { get; private set; } = GameMode.None;
+        public bool IsShowing => Mode == GameMode.None;
 
-        /// <summary>Raised when a mode is chosen, so other systems can configure themselves.</summary>
         public event Action<GameMode> ModeChosen;
+
+        /// <summary>Raised when the player leaves a game, so systems can tear down.</summary>
+        public event Action Quit;
 
         void Awake()
         {
@@ -50,88 +66,112 @@ namespace LightningForge.Chess.Game
 
         void Build()
         {
-            root = document.rootVisualElement;
+            VisualElement root = document.rootVisualElement;
             if (root == null) return;
             root.Clear();
 
-            // Dim the board behind so the title reads clearly.
-            var scrim = new VisualElement();
+            scrim = new VisualElement();
             scrim.style.position = Position.Absolute;
             scrim.style.left = 0; scrim.style.right = 0; scrim.style.top = 0; scrim.style.bottom = 0;
-            scrim.style.backgroundColor = new Color(0.03f, 0.03f, 0.04f, 0.72f);
+            scrim.style.backgroundColor = new Color(0.03f, 0.03f, 0.04f, 0.78f);
             scrim.style.alignItems = Align.Center;
             scrim.style.justifyContent = Justify.Center;
             root.Add(scrim);
-            titlePanel = scrim;
 
             var title = new Label(gameTitle);
             title.style.color = new Color(0.95f, 0.92f, 0.86f);
             title.style.fontSize = 76f;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.letterSpacing = 14f;
-            title.style.marginBottom = 4f;
             scrim.Add(title);
 
             var subtitle = new Label("Lightning Forge Games");
             subtitle.style.color = new Color(0.62f, 0.58f, 0.52f);
             subtitle.style.fontSize = 14f;
             subtitle.style.letterSpacing = 3f;
-            subtitle.style.marginBottom = 40f;
+            subtitle.style.marginBottom = 38f;
             scrim.Add(subtitle);
 
-            var single = MakeButton("Single Player", () => ShowDifficulty(true));
-            scrim.Add(single);
-
-            var hotSeat = MakeButton("Two Players, One Device", () => Begin(GameMode.HotSeat));
-            scrim.Add(hotSeat);
-
-            var online = MakeButton("Play Online", () => Begin(GameMode.Online));
-            scrim.Add(online);
-
-            BuildDifficultyPanel(scrim);
+            BuildHome(scrim);
+            BuildSetup(scrim);
+            GoTo(Page.Home);
         }
 
-        void BuildDifficultyPanel(VisualElement parent)
+        void BuildHome(VisualElement parent)
         {
-            difficultyPanel = new VisualElement();
-            difficultyPanel.style.marginTop = 14f;
-            difficultyPanel.style.alignItems = Align.Center;
-            difficultyPanel.style.display = DisplayStyle.None;
-            parent.Add(difficultyPanel);
+            homePage = new VisualElement();
+            homePage.style.alignItems = Align.Center;
+            parent.Add(homePage);
 
-            var prompt = new Label("Choose a difficulty");
-            prompt.style.color = new Color(0.80f, 0.76f, 0.70f);
-            prompt.style.fontSize = 14f;
-            prompt.style.marginBottom = 8f;
-            difficultyPanel.Add(prompt);
+            homePage.Add(MakeButton("Single Player", () => GoTo(Page.SinglePlayerSetup)));
+            homePage.Add(MakeButton("Play Online", () => Begin(GameMode.Online)));
+        }
 
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            difficultyPanel.Add(row);
+        void BuildSetup(VisualElement parent)
+        {
+            setupPage = new VisualElement();
+            setupPage.style.alignItems = Align.Center;
+            parent.Add(setupPage);
+
+            setupPage.Add(MakeHeading("Difficulty"));
+            var difficultyRow = new VisualElement();
+            difficultyRow.style.flexDirection = FlexDirection.Row;
+            setupPage.Add(difficultyRow);
 
             foreach (Difficulty level in (Difficulty[])Enum.GetValues(typeof(Difficulty)))
             {
                 Difficulty captured = level;
-                var button = MakeButton(level.ToString(), () => StartSinglePlayer(captured));
-                button.style.marginLeft = 5f;
-                button.style.marginRight = 5f;
-                button.style.width = 118f;
-                row.Add(button);
+                Button b = MakeButton(level.ToString(), () => { chosenDifficulty = captured; RefreshSetup(); });
+                b.style.width = 108f;
+                b.style.marginLeft = 4f; b.style.marginRight = 4f;
+                difficultyRow.Add(b);
             }
 
-            var back = MakeButton("Back", () => ShowDifficulty(false));
-            back.style.marginTop = 10f;
-            back.style.width = 118f;
-            difficultyPanel.Add(back);
+            setupPage.Add(MakeHeading("Play as"));
+            var colourRow = new VisualElement();
+            colourRow.style.flexDirection = FlexDirection.Row;
+            setupPage.Add(colourRow);
+
+            Button white = MakeButton("White", () => { chosenColour = PieceColor.White; RefreshSetup(); });
+            white.style.width = 108f; white.style.marginLeft = 4f; white.style.marginRight = 4f;
+            colourRow.Add(white);
+
+            Button black = MakeButton("Black", () => { chosenColour = PieceColor.Black; RefreshSetup(); });
+            black.style.width = 108f; black.style.marginLeft = 4f; black.style.marginRight = 4f;
+            colourRow.Add(black);
+
+            setupSummary = new Label();
+            setupSummary.style.color = new Color(0.80f, 0.76f, 0.70f);
+            setupSummary.style.fontSize = 13f;
+            setupSummary.style.marginTop = 14f;
+            setupPage.Add(setupSummary);
+
+            Button start = MakeButton("Start Game", StartSinglePlayer);
+            start.style.marginTop = 8f;
+            setupPage.Add(start);
+
+            setupPage.Add(MakeButton("Back", () => GoTo(Page.Home)));
+        }
+
+        Label MakeHeading(string text)
+        {
+            var heading = new Label(text);
+            heading.style.color = new Color(0.66f, 0.62f, 0.56f);
+            heading.style.fontSize = 12f;
+            heading.style.letterSpacing = 2f;
+            heading.style.unityFontStyleAndWeight = FontStyle.Bold;
+            heading.style.marginTop = 12f;
+            heading.style.marginBottom = 5f;
+            return heading;
         }
 
         Button MakeButton(string text, Action onClick)
         {
             var button = new Button(() => onClick());
             button.text = text;
-            button.style.width = 260f;
-            button.style.paddingTop = 11f;
-            button.style.paddingBottom = 11f;
+            button.style.width = 232f;
+            button.style.paddingTop = 10f;
+            button.style.paddingBottom = 10f;
             button.style.marginTop = 5f;
             button.style.fontSize = 15f;
             button.style.color = new Color(0.93f, 0.90f, 0.84f);
@@ -148,18 +188,25 @@ namespace LightningForge.Chess.Game
             return button;
         }
 
-        void ShowDifficulty(bool visible)
+        void GoTo(Page page)
         {
-            if (difficultyPanel == null) return;
-            difficultyPanel.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (homePage != null) homePage.style.display = page == Page.Home ? DisplayStyle.Flex : DisplayStyle.None;
+            if (setupPage != null) setupPage.style.display = page == Page.SinglePlayerSetup ? DisplayStyle.Flex : DisplayStyle.None;
+            if (page == Page.SinglePlayerSetup) RefreshSetup();
         }
 
-        void StartSinglePlayer(Difficulty level)
+        void RefreshSetup()
+        {
+            if (setupSummary == null) return;
+            setupSummary.text = chosenDifficulty + " . playing as " + chosenColour;
+        }
+
+        void StartSinglePlayer()
         {
             if (ai != null)
             {
-                ai.Difficulty = level;
-                ai.Side = PieceColor.Black;   // the human opens as White
+                ai.Difficulty = chosenDifficulty;
+                ai.Side = chosenColour == PieceColor.White ? PieceColor.Black : PieceColor.White;
                 ai.enabled = true;
             }
             Begin(GameMode.SinglePlayer);
@@ -167,22 +214,27 @@ namespace LightningForge.Chess.Game
 
         void Begin(GameMode mode)
         {
-            Mode = mode;
-
             // Cancel any thinking left over from a previous game before resetting.
             if (ai != null) ai.Stop();
+
+            Mode = mode;
 
             if (controller != null)
             {
                 controller.NewGame();
-                // Online sets its own restriction once the link decides our colour.
+                // Online decides the restriction once the match assigns a colour.
                 controller.Control = mode == GameMode.SinglePlayer
-                    ? ControlMode.WhiteOnly
+                    ? (chosenColour == PieceColor.White ? ControlMode.WhiteOnly : ControlMode.BlackOnly)
                     : ControlMode.Both;
             }
 
             if (ai != null && mode != GameMode.SinglePlayer) ai.enabled = false;
-            if (cameraRig != null) cameraRig.SetViewpoint(PieceColor.White);
+
+            // Single player sits behind the colour the human chose; online flips later.
+            if (cameraRig != null)
+            {
+                cameraRig.SetViewpoint(mode == GameMode.SinglePlayer ? chosenColour : PieceColor.White);
+            }
 
             Hide();
 
@@ -193,19 +245,44 @@ namespace LightningForge.Chess.Game
             if (ai != null && mode == GameMode.SinglePlayer) ai.Nudge();
         }
 
+        /// <summary>Leaves the current game and returns to the title.</summary>
+        public void QuitToMenu()
+        {
+            if (ai != null)
+            {
+                ai.Stop();
+                ai.enabled = false;
+            }
+
+            Action quitHandler = Quit;
+            if (quitHandler != null) quitHandler();
+
+            if (controller != null)
+            {
+                controller.NewGame();
+                controller.Control = ControlMode.Both;
+            }
+            if (cameraRig != null) cameraRig.SetViewpoint(PieceColor.White);
+
+            Show();
+        }
+
         public void Show()
         {
             Mode = GameMode.None;
-            if (titlePanel != null) titlePanel.style.display = DisplayStyle.Flex;
-            ShowDifficulty(false);
+            if (scrim != null) scrim.style.display = DisplayStyle.Flex;
+            GoTo(Page.Home);
             if (ai != null) ai.enabled = false;
             if (hud != null) hud.SetVisible(false);
+            // Stop clicks reaching the board through the overlay.
+            if (controller != null) controller.AcceptsInput = false;
         }
 
         public void Hide()
         {
-            if (titlePanel != null) titlePanel.style.display = DisplayStyle.None;
+            if (scrim != null) scrim.style.display = DisplayStyle.None;
             if (hud != null) hud.SetVisible(true);
+            if (controller != null) controller.AcceptsInput = true;
         }
 
         /// <summary>Used when an invite link should bypass the menu entirely.</summary>

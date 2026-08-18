@@ -164,6 +164,27 @@ namespace LightningForge.Chess.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator InputIsIgnoredWhileAMenuCoversTheBoard()
+        {
+            controller = Build(Board.StartFen);
+            controller.AcceptsInput = false;
+
+            controller.HandleSquarePicked(Sq("e2"));
+            controller.HandleSquarePicked(Sq("e4"));
+            yield return null;
+
+            Assert.AreEqual(Board.StartFen, controller.Board.ToFen(),
+                "clicks must not reach the board while a menu is up");
+
+            controller.AcceptsInput = true;
+            controller.HandleSquarePicked(Sq("e2"));
+            controller.HandleSquarePicked(Sq("e4"));
+            yield return Settle("e2e4 after re-enabling input");
+
+            Assert.AreNotEqual(Board.StartFen, controller.Board.ToFen(), "input should work again");
+        }
+
+        [UnityTest]
         public IEnumerator PickerMakesUnderpromotionReachable()
         {
             controller = Build("4k3/P7/8/8/8/8/8/4K3 w - - 0 1");

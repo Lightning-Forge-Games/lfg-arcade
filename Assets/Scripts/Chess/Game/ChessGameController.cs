@@ -52,6 +52,12 @@ namespace LightningForge.Chess.Game
         /// </summary>
         public ControlMode Control { get; set; } = ControlMode.Both;
 
+        /// <summary>
+        /// False while a menu is covering the board. The title screen is only an overlay,
+        /// so without this, clicks pass straight through it and play moves behind the menu.
+        /// </summary>
+        public bool AcceptsInput { get; set; } = true;
+
         bool CanMoveNow()
         {
             if (Control == ControlMode.Both) return true;
@@ -161,6 +167,7 @@ namespace LightningForge.Chess.Game
 
             // Ignore picks mid-animation: the board has already advanced, so acting now
             // would let a second move start before the first finished moving on screen.
+            if (!AcceptsInput) return;
             if (IsAnimating || AwaitingPromotion || GameStatusEvaluator.IsGameOver(Status)) return;
             if (!CanMoveNow()) return;
 

@@ -16,6 +16,10 @@ namespace LightningForge.Chess.Game
     public class ChessHud : MonoBehaviour
     {
         [SerializeField] ChessGameController controller;
+        [SerializeField] TitleScreen titleScreen;
+        [SerializeField] BoardCameraRig cameraRig;
+
+        Button viewButton;
 
         UIDocument document;
         Label statusLabel;
@@ -28,6 +32,8 @@ namespace LightningForge.Chess.Game
         {
             document = GetComponent<UIDocument>();
             if (controller == null) controller = FindFirstObjectByType<ChessGameController>();
+            if (titleScreen == null) titleScreen = FindFirstObjectByType<TitleScreen>();
+            if (cameraRig == null) cameraRig = FindFirstObjectByType<BoardCameraRig>();
         }
 
         void OnEnable()
@@ -99,23 +105,27 @@ namespace LightningForge.Chess.Game
             statusLabel.style.display = DisplayStyle.None;
             panel.Add(statusLabel);
 
-            // New game button, bottom right.
-            var button = new Button(() => { if (controller != null) controller.NewGame(); Refresh(); });
-            button.text = "New Game";
-            button.style.position = Position.Absolute;
-            button.style.bottom = 22f;
-            button.style.right = 22f;
-            button.style.paddingLeft = 18f;
-            button.style.paddingRight = 18f;
-            button.style.paddingTop = 9f;
-            button.style.paddingBottom = 9f;
-            button.style.fontSize = 14f;
-            button.style.color = new Color(0.93f, 0.90f, 0.84f);
-            button.style.backgroundColor = new Color(0.12f, 0.11f, 0.11f, 0.88f);
-            SetBorderColor(button, new Color(0.42f, 0.33f, 0.22f, 1f));
-            SetBorderWidth(button, 1f);
-            SetBorderRadius(button, 5f);
-            root.Add(button);
+            // Controls, bottom right, stacked so they never overlap the board.
+            var controls = new VisualElement();
+            controls.style.position = Position.Absolute;
+            controls.style.bottom = 22f;
+            controls.style.right = 22f;
+            controls.style.alignItems = Align.FlexEnd;
+            root.Add(controls);
+
+            viewButton = MakeControl("View: Angled", () =>
+            {
+                if (cameraRig != null) cameraRig.ToggleStyle();
+                RefreshViewButton();
+            });
+            controls.Add(viewButton);
+
+            controls.Add(MakeControl("New Game", () => { if (controller != null) controller.NewGame(); Refresh(); }));
+
+            controls.Add(MakeControl("Quit to Menu", () =>
+            {
+                if (titleScreen != null) titleScreen.QuitToMenu();
+            }));
 
             BuildPromotionPicker(root);
             BuildMoveList(root);
@@ -266,6 +276,32 @@ namespace LightningForge.Chess.Game
             promotionPanel.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
+        Button MakeControl(string text, System.Action onClick)
+        {
+            var button = new Button(() => onClick());
+            button.text = text;
+            button.style.minWidth = 132f;
+            button.style.paddingLeft = 16f;
+            button.style.paddingRight = 16f;
+            button.style.paddingTop = 8f;
+            button.style.paddingBottom = 8f;
+            button.style.marginTop = 4f;
+            button.style.fontSize = 13f;
+            button.style.color = new Color(0.93f, 0.90f, 0.84f);
+            button.style.backgroundColor = new Color(0.12f, 0.11f, 0.11f, 0.88f);
+            SetBorderColor(button, new Color(0.42f, 0.33f, 0.22f, 1f));
+            SetBorderWidth(button, 1f);
+            SetBorderRadius(button, 5f);
+            return button;
+        }
+
+        void RefreshViewButton()
+        {
+            if (viewButton == null) return;
+            BoardViewStyle current = cameraRig != null ? cameraRig.Style : BoardViewStyle.Angled;
+            viewButton.text = current == BoardViewStyle.Angled ? "View: Angled" : "View: Overhead";
+        }
+
         static void SetBorderRadius(VisualElement element, float radius)
         {
             element.style.borderTopLeftRadius = radius;
@@ -343,6 +379,7 @@ namespace LightningForge.Chess.Game
                 : DisplayStyle.Flex;
 
             RefreshMoveList();
+            RefreshViewButton();
         }
     }
 }

@@ -3,7 +3,8 @@
     "rootNamespace": "LightningForge.Chess.Game",
     "references": [
         "LightningForge.Chess.Core",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

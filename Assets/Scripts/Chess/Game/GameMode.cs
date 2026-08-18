@@ -6,7 +6,6 @@ namespace LightningForge.Chess.Game
         /// <summary>No game started; the title screen is up.</summary>
         None,
         SinglePlayer,
-        HotSeat,
         Online
     }
 }
