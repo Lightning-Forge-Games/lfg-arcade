@@ -82,6 +82,7 @@ namespace LightningForge.Arcade.Game
                 Title = "Backgammon",
                 Blurb = "Race your checkers home. The dice decide, the choices matter.",
                 Accent = new Color(0.55f, 0.45f, 0.65f),
+                Playable = true,
             },
             new ArcadeGameInfo
             {
