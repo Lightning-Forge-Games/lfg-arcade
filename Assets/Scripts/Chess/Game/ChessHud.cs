@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using LightningForge.Chess.Core;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -20,6 +21,8 @@ namespace LightningForge.Chess.Game
         Label statusLabel;
         Label turnLabel;
         VisualElement promotionPanel;
+        ScrollView moveList;
+        int renderedMoveCount = -1;
 
         void Awake()
         {
@@ -115,6 +118,83 @@ namespace LightningForge.Chess.Game
             root.Add(button);
 
             BuildPromotionPicker(root);
+            BuildMoveList(root);
+        }
+
+        /// <summary>Scrolling list of the game so far, paired up as White/Black per move.</summary>
+        void BuildMoveList(VisualElement root)
+        {
+            var panel = new VisualElement();
+            panel.style.position = Position.Absolute;
+            panel.style.top = 74f;
+            panel.style.right = 22f;
+            panel.style.width = 150f;
+            panel.style.maxHeight = 320f;
+            panel.style.backgroundColor = new Color(0.05f, 0.05f, 0.06f, 0.72f);
+            panel.style.paddingLeft = 10f;
+            panel.style.paddingRight = 6f;
+            panel.style.paddingTop = 8f;
+            panel.style.paddingBottom = 8f;
+            SetBorderRadius(panel, 6f);
+            root.Add(panel);
+
+            var heading = new Label("Moves");
+            heading.style.color = new Color(0.72f, 0.68f, 0.60f);
+            heading.style.fontSize = 11f;
+            heading.style.unityFontStyleAndWeight = FontStyle.Bold;
+            heading.style.marginBottom = 5f;
+            panel.Add(heading);
+
+            moveList = new ScrollView(ScrollViewMode.Vertical);
+            moveList.style.flexGrow = 1f;
+            moveList.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            panel.Add(moveList);
+        }
+
+        void RefreshMoveList()
+        {
+            if (moveList == null || controller == null) return;
+
+            IReadOnlyList<string> history = controller.MoveHistory;
+            if (history.Count == renderedMoveCount) return;
+            renderedMoveCount = history.Count;
+
+            moveList.Clear();
+
+            // Two plies per numbered move, as a scoresheet reads.
+            for (int i = 0; i < history.Count; i += 2)
+            {
+                var row = new VisualElement();
+                row.style.flexDirection = FlexDirection.Row;
+                row.style.marginBottom = 1f;
+
+                var number = new Label(((i / 2) + 1) + ".");
+                number.style.color = new Color(0.55f, 0.52f, 0.47f);
+                number.style.fontSize = 12f;
+                number.style.width = 24f;
+                row.Add(number);
+
+                var white = new Label(history[i]);
+                white.style.color = new Color(0.93f, 0.90f, 0.84f);
+                white.style.fontSize = 12f;
+                white.style.width = 52f;
+                row.Add(white);
+
+                if (i + 1 < history.Count)
+                {
+                    var black = new Label(history[i + 1]);
+                    black.style.color = new Color(0.78f, 0.76f, 0.72f);
+                    black.style.fontSize = 12f;
+                    black.style.width = 52f;
+                    row.Add(black);
+                }
+
+                moveList.Add(row);
+            }
+
+            // Keep the latest move in view.
+            moveList.schedule.Execute(() => moveList.scrollOffset =
+                new Vector2(0f, moveList.contentContainer.layout.height)).ExecuteLater(16);
         }
 
         void BuildPromotionPicker(VisualElement root)
@@ -253,6 +333,8 @@ namespace LightningForge.Chess.Game
             statusLabel.style.display = string.IsNullOrEmpty(detail)
                 ? DisplayStyle.None
                 : DisplayStyle.Flex;
+
+            RefreshMoveList();
         }
     }
 }

@@ -864,6 +864,7 @@ GameObject:
   - component: {fileID: 1752491941}
   - component: {fileID: 1752491940}
   - component: {fileID: 1752491943}
+  - component: {fileID: 1752491944}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -989,6 +990,96 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &1752491944
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1752491939}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e05170768a82dc4cb44631d8e6869ee, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: LightningForge.Chess.Game::LightningForge.Chess.Game.BoardCameraRig
+  target: {fileID: 1752491941}
+  height: 8.5
+  distance: 8.5
+  pitch: 45
+  transitionSeconds: 0.5
+--- !u!1 &1804484018
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1804484021}
+  - component: {fileID: 1804484020}
+  - component: {fileID: 1804484019}
+  m_Layer: 0
+  m_Name: Board Coordinates
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1804484019
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804484018}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6059e310d78478048a5a26d49a50ba6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: LightningForge.Chess.Game::LightningForge.Chess.Game.BoardCoordinateLabels
+  boardView: {fileID: 653221817}
+  targetCamera: {fileID: 1752491941}
+  margin: 0.72
+  fontSize: 13
+  labelColor: {r: 0.78, g: 0.74, b: 0.66, a: 1}
+--- !u!114 &1804484020
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804484018}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
+  m_PanelSettings: {fileID: 11400000, guid: e7c7b39a6b42ffb4aa75f22e2b4bfdbe, type: 2}
+  m_ParentUI: {fileID: 0}
+  sourceAsset: {fileID: 0}
+  m_SortingOrder: -5
+  m_Position: 0
+  m_WorldSpaceSizeMode: 1
+  m_WorldSpaceWidth: 1920
+  m_WorldSpaceHeight: 1080
+  m_PivotReferenceSize: 0
+  m_Pivot: 0
+  m_WorldSpaceCollider: {fileID: 0}
+--- !u!4 &1804484021
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804484018}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -1002,3 +1093,4 @@ SceneRoots:
   - {fileID: 994415537}
   - {fileID: 1686781885}
   - {fileID: 1037292491}
+  - {fileID: 1804484021}

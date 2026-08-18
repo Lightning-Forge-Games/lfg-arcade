@@ -36,6 +36,10 @@ namespace LightningForge.Chess.Net
             IsWhite = Object.HasStateAuthority;
             controller.Control = IsWhite ? ControlMode.WhiteOnly : ControlMode.BlackOnly;
 
+            // Put the camera behind whichever side we are playing.
+            BoardCameraRig rig = FindFirstObjectByType<BoardCameraRig>();
+            if (rig != null) rig.SetViewpoint(IsWhite ? PieceColor.White : PieceColor.Black);
+
             controller.MoveMade += OnLocalMoveMade;
 
             Debug.Log("ChessNetLink spawned. Playing as " + (IsWhite ? "White" : "Black"));
@@ -49,6 +53,9 @@ namespace LightningForge.Chess.Net
                 // Fall back to hot seat so the game stays playable after a disconnect.
                 controller.Control = ControlMode.Both;
             }
+
+            BoardCameraRig rig = FindFirstObjectByType<BoardCameraRig>();
+            if (rig != null) rig.SetViewpoint(PieceColor.White);
         }
 
         void OnLocalMoveMade(Move move)

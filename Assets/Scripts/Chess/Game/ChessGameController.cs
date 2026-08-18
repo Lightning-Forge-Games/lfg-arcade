@@ -34,6 +34,7 @@ namespace LightningForge.Chess.Game
         readonly GameObject[] pieceViews = new GameObject[Square.Count];
         readonly List<Move> legalMoves = new List<Move>();
         readonly List<Move> movesFromSelection = new List<Move>();
+        readonly List<string> moveHistory = new List<string>();
 
         Board board;
         int selectedSquare = Square.None;
@@ -77,6 +78,9 @@ namespace LightningForge.Chess.Game
         public GameObject GetPieceView(int square) =>
             Square.IsValid(square) ? pieceViews[square] : null;
 
+        /// <summary>Moves played so far in algebraic notation, one entry per ply.</summary>
+        public IReadOnlyList<string> MoveHistory => moveHistory;
+
         void Reset()
         {
             boardView = GetComponent<ChessBoardView>();
@@ -110,6 +114,7 @@ namespace LightningForge.Chess.Game
             selectedSquare = Square.None;
             pendingPromotionFrom = Square.None;
             pendingPromotionTo = Square.None;
+            moveHistory.Clear();
 
             RebuildPieceViews();
             RefreshLegalMoves();
@@ -230,6 +235,10 @@ namespace LightningForge.Chess.Game
         {
             PieceColor mover = board.SideToMove;
             PieceType movingType = board[move.From].Type;
+
+            // Must be named before the board changes: algebraic notation depends on the
+            // position the move was played from, not the one it produces.
+            moveHistory.Add(SanWriter.ToSan(board, move));
 
             // Work out every visual consequence before the board mutates.
             int captureSquare = move.IsEnPassant
