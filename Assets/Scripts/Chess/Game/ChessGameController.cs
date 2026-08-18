@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using LightningForge.Chess.Core;
 using UnityEngine;
@@ -24,18 +25,30 @@ namespace LightningForge.Chess.Game
         [Tooltip("Piece chosen automatically when a pawn promotes.")]
         [SerializeField] PieceType autoPromotion = PieceType.Queen;
 
+        [Header("Animation")]
+        [SerializeField] float moveDuration = 0.28f;
+        [SerializeField] float knightHopHeight = 0.55f;
+        [SerializeField] float glideHeight = 0.08f;
+        [SerializeField] float captureFadeDuration = 0.22f;
+
         readonly GameObject[] pieceViews = new GameObject[Square.Count];
         readonly List<Move> legalMoves = new List<Move>();
         readonly List<Move> movesFromSelection = new List<Move>();
 
         Board board;
         int selectedSquare = Square.None;
+        Coroutine running;
 
         public Board Board => board;
         public GameStatus Status { get; private set; } = GameStatus.Ongoing;
+        public bool IsAnimating => running != null;
 
         public event Action<Move> MoveMade;
         public event Action<GameStatus> StatusChanged;
+
+        /// <summary>The view currently standing on a square, or null. Exposed for tests.</summary>
+        public GameObject GetPieceView(int square) =>
+            Square.IsValid(square) ? pieceViews[square] : null;
 
         void Reset()
         {
@@ -60,6 +73,12 @@ namespace LightningForge.Chess.Game
 
         public void NewGame()
         {
+            if (running != null)
+            {
+                StopCoroutine(running);
+                running = null;
+            }
+
             board = string.IsNullOrWhiteSpace(startingFen) ? new Board() : new Board(startingFen);
             selectedSquare = Square.None;
 
@@ -84,7 +103,6 @@ namespace LightningForge.Chess.Game
 
             if (camera == null) camera = Camera.main;
             if (camera == null || board == null) return;
-            if (GameStatusEvaluator.IsGameOver(Status)) return;
 
             Ray ray = camera.ScreenPointToRay(screenPosition);
             if (!Physics.Raycast(ray, out RaycastHit hit, 1000f)) return;
@@ -98,6 +116,10 @@ namespace LightningForge.Chess.Game
         public void HandleSquarePicked(int square)
         {
             EnsureInitialised();
+
+            // Ignore picks mid-animation: the board has already advanced, so acting now
+            // would let a second move start before the first finished moving on screen.
+            if (IsAnimating || GameStatusEvaluator.IsGameOver(Status)) return;
 
             if (selectedSquare != Square.None)
             {
@@ -133,12 +155,157 @@ namespace LightningForge.Chess.Game
 
         void PlayMove(Move move)
         {
+            PieceColor mover = board.SideToMove;
+            PieceType movingType = board[move.From].Type;
+
+            // Work out every visual consequence before the board mutates.
+            int captureSquare = move.IsEnPassant
+                ? move.To + (mover == PieceColor.White ? -8 : 8)
+                : move.To;
+
+            GameObject capturedView = board[captureSquare].IsSome ? pieceViews[captureSquare] : null;
+            GameObject movingView = pieceViews[move.From];
+
+            int rookFrom = Square.None;
+            int rookTo = Square.None;
+            if (move.IsCastle)
+            {
+                int backRank = mover == PieceColor.White ? 0 : 56;
+                bool kingSide = (move.Flags & MoveFlags.KingSideCastle) != 0;
+                rookFrom = kingSide ? backRank + 7 : backRank;
+                rookTo = kingSide ? backRank + 5 : backRank + 3;
+            }
+
             board.MakeMove(move);
+
+            // Re-key the view table to match.
+            if (capturedView != null) pieceViews[captureSquare] = null;
+            pieceViews[move.From] = null;
+            pieceViews[move.To] = movingView;
+
+            GameObject rookView = null;
+            if (rookFrom != Square.None)
+            {
+                rookView = pieceViews[rookFrom];
+                pieceViews[rookFrom] = null;
+                pieceViews[rookTo] = rookView;
+            }
+
             ClearSelection();
-            RebuildPieceViews();
             RefreshLegalMoves();
             UpdateStatus();
+
+            running = StartCoroutine(AnimateMove(
+                move, movingView, movingType, capturedView, rookView, rookTo, mover));
+
             MoveMade?.Invoke(move);
+        }
+
+        IEnumerator AnimateMove(
+            Move move, GameObject movingView, PieceType movingType,
+            GameObject capturedView, GameObject rookView, int rookTo, PieceColor mover)
+        {
+            float duration = movingType == PieceType.Knight ? moveDuration * 1.35f : moveDuration;
+            float arc = movingType == PieceType.Knight ? knightHopHeight : glideHeight;
+
+            Vector3 fromPos = movingView != null ? movingView.transform.position : Vector3.zero;
+            Vector3 toPos = boardView.SquareSurface(move.To);
+
+            Vector3 rookFromPos = rookView != null ? rookView.transform.position : Vector3.zero;
+            Vector3 rookToPos = rookTo != Square.None ? boardView.SquareSurface(rookTo) : Vector3.zero;
+
+            Coroutine captureRoutine = null;
+            bool captureStarted = false;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                float eased = t * t * (3f - 2f * t);   // smoothstep
+
+                if (movingView != null)
+                {
+                    Vector3 p = Vector3.Lerp(fromPos, toPos, eased);
+                    p.y += Mathf.Sin(eased * Mathf.PI) * arc;
+                    movingView.transform.position = p;
+                }
+
+                if (rookView != null)
+                {
+                    rookView.transform.position = Vector3.Lerp(rookFromPos, rookToPos, eased);
+                }
+
+                // Start clearing the captured piece once the attacker is most of the way in.
+                if (!captureStarted && capturedView != null && t > 0.55f)
+                {
+                    captureStarted = true;
+                    captureRoutine = StartCoroutine(AnimateCapture(capturedView));
+                }
+
+                yield return null;
+            }
+
+            if (movingView != null) movingView.transform.position = toPos;
+            if (rookView != null) rookView.transform.position = rookToPos;
+
+            // The capture outlives the slide, so wait for it. Otherwise IsAnimating drops
+            // to false while a taken piece is still visibly shrinking on the board.
+            if (capturedView != null && !captureStarted) yield return AnimateCapture(capturedView);
+            else if (captureRoutine != null) yield return captureRoutine;
+
+            // Promotion swaps the model only once the pawn has arrived.
+            if (move.IsPromotion)
+            {
+                if (movingView != null) Destroy(movingView);
+                Piece promoted = board[move.To];
+                GameObject view = pieceFactory != null
+                    ? pieceFactory.Create(promoted.Type, promoted.Color, transform)
+                    : null;
+                if (view != null)
+                {
+                    view.transform.position = toPos;
+                    pieceViews[move.To] = view;
+                    yield return AnimateSpawn(view);
+                }
+            }
+
+            running = null;
+        }
+
+        IEnumerator AnimateCapture(GameObject view)
+        {
+            Vector3 startScale = view.transform.localScale;
+            Vector3 startPos = view.transform.position;
+            float elapsed = 0f;
+
+            while (elapsed < captureFadeDuration && view != null)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / captureFadeDuration);
+                view.transform.localScale = Vector3.Lerp(startScale, startScale * 0.05f, t);
+                view.transform.position = startPos + Vector3.down * (t * 0.18f);
+                yield return null;
+            }
+
+            if (view != null) Destroy(view);
+        }
+
+        IEnumerator AnimateSpawn(GameObject view)
+        {
+            Vector3 target = view.transform.localScale;
+            float elapsed = 0f;
+            const float duration = 0.18f;
+
+            while (elapsed < duration && view != null)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                view.transform.localScale = Vector3.Lerp(target * 0.3f, target, t);
+                yield return null;
+            }
+
+            if (view != null) view.transform.localScale = target;
         }
 
         void Select(int square)
@@ -179,10 +346,7 @@ namespace LightningForge.Chess.Game
             if (Status != previous) StatusChanged?.Invoke(Status);
         }
 
-        /// <summary>
-        /// Rebuilds every piece view from the board. Simple and always correct; animated
-        /// moves can later diff against this instead of respawning.
-        /// </summary>
+        /// <summary>Spawns a fresh set of views from the board. Used on new game only.</summary>
         void RebuildPieceViews()
         {
             for (int square = 0; square < Square.Count; square++)
