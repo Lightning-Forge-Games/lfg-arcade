@@ -26,9 +26,14 @@ namespace LightningForge.Arcade.Game.Yahtzee
         const int DiceCount = 5;
         const int RollsPerTurn = 3;
 
-        const float TrayWidth = 3.4f;
-        const float TrayDepth = 2.4f;
-        const float WallHeight = 0.42f;
+        // Half again as large as it was, so a throw has room to scatter rather than
+        // landing in a heap.
+        const float TrayWidth = 5.1f;
+        const float TrayDepth = 3.6f;
+        const float WallHeight = 0.46f;
+
+        const float CupRadius = 0.38f;
+        const float CupHeight = 0.92f;
 
         static readonly Color TrayFelt = new Color(0.11f, 0.19f, 0.14f);
         static readonly Color TrayWall = new Color(0.22f, 0.14f, 0.09f);
@@ -54,6 +59,16 @@ namespace LightningForge.Arcade.Game.Yahtzee
         Coroutine thinking;
         Coroutine rolling;
         UIDocument document;
+        AudioSource rattleSource;
+
+        /// <summary>The dice waiting in the cup, loaded when a roll begins.</summary>
+        readonly List<YahtzeeDie> loaded = new List<YahtzeeDie>();
+
+        bool cupHeld;
+        bool countedThisRoll;
+        Vector3 cupTarget;
+        Vector3 lastCupPosition;
+        float swirl;
 
         VisualElement panel;
         readonly Dictionary<YahtzeeCategory, Button>[] boxButtons =
@@ -89,8 +104,9 @@ namespace LightningForge.Arcade.Game.Yahtzee
                 }
 
                 string who = "Player " + (seat + 1);
+                if (cupHeld) return who + ", swirl the cup then click to throw";
                 if (rolling != null) return who + " rolling...";
-                if (!rolledThisTurn) return who + " to roll";
+                if (!rolledThisTurn) return who + " to roll, or pick up the cup";
                 if (rollsUsed >= RollsPerTurn) return who + ", pick a box";
                 return who + ", roll " + rollsUsed + " of " + RollsPerTurn + ". Click a die to keep it";
             }
@@ -116,6 +132,7 @@ namespace LightningForge.Arcade.Game.Yahtzee
             rolledThisTurn = false;
             for (int i = 0; i < DiceCount; i++) dice[i] = 1;
 
+            ArcadeAudio.EnsureListener();
             BuildTable();
             BuildCard();
 
@@ -125,12 +142,12 @@ namespace LightningForge.Arcade.Game.Yahtzee
                 {
                     // Over the tray and steep, because the number that matters is the one
                     // on top and a low angle hides it behind the near face.
-                    Focus = new Vector3(-1.5f, 0f, -0.35f),
-                    Height = 6.4f,
-                    Distance = 2.9f,
-                    Pitch = 66f,
+                    Focus = new Vector3(-1.4f, 0f, -0.3f),
+                    Height = 9.6f,
+                    Distance = 4.4f,
+                    Pitch = 64f,
                     Fov = 42f,
-                    HalfExtent = 3.6f,
+                    HalfExtent = 5.4f,
                 });
             }
 
@@ -160,6 +177,9 @@ namespace LightningForge.Arcade.Game.Yahtzee
         {
             if (thinking != null) { StopCoroutine(thinking); thinking = null; }
             if (rolling != null) { StopCoroutine(rolling); rolling = null; }
+            if (rattleSource != null) rattleSource.Stop();
+            cupHeld = false;
+            loaded.Clear();
         }
 
         // Turn flow -----------------------------------------------------------------
@@ -181,10 +201,43 @@ namespace LightningForge.Arcade.Game.Yahtzee
             }
         }
 
+        /// <summary>The Roll button: loads the cup and throws it, all in one.</summary>
         void Roll()
         {
-            if (rollsUsed >= RollsPerTurn || rolling != null) return;
+            if (!CanRoll()) return;
+            LoadCup();
             rolling = StartCoroutine(RollRoutine());
+        }
+
+        bool CanRoll() =>
+            rollsUsed < RollsPerTurn && rolling == null && thinking == null && !cupHeld
+            && !IsFinished && LocalControls(FirstSeatToPlay);
+
+        /// <summary>
+        /// Gathers the dice that are going to be thrown into the cup.
+        ///
+        /// This is what stops a throw landing on dice still lying in the tray. They are
+        /// released over the course of the tip, so without collecting them first the ones
+        /// still waiting are sitting exactly where the first ones out are about to land.
+        /// </summary>
+        void LoadCup()
+        {
+            loaded.Clear();
+            foreach (YahtzeeDie die in dieViews)
+            {
+                if (die.Held) continue;
+                loaded.Add(die);
+            }
+
+            for (int i = 0; i < loaded.Count; i++)
+            {
+                // Stacked loosely down the inside of the cup.
+                float angle = i * 2.4f;
+                loaded[i].StowIn(cup, new Vector3(
+                    Mathf.Cos(angle) * 0.11f,
+                    -0.3f + i * 0.085f,
+                    Mathf.Sin(angle) * 0.11f));
+            }
         }
 
         /// <summary>
@@ -193,16 +246,18 @@ namespace LightningForge.Arcade.Game.Yahtzee
         /// </summary>
         IEnumerator RollRoutine()
         {
-            rollsUsed++;
-            rolledThisTurn = true;
+            // The hand throw counts its own roll before it starts, so it is only counted
+            // here for the ones that come straight from the button.
+            if (!countedThisRoll)
+            {
+                rollsUsed++;
+                rolledThisTurn = true;
+            }
+            countedThisRoll = false;
             Raise();
             RefreshCard();
 
-            var loose = new List<YahtzeeDie>();
-            foreach (YahtzeeDie die in dieViews)
-            {
-                if (!die.Held) loose.Add(die);
-            }
+            var loose = new List<YahtzeeDie>(loaded);
 
             Vector3 rest = CupRest();
             Vector3 over = new Vector3(TrayCentre().x - 0.7f, 1.55f, TrayCentre().z - 0.15f);
@@ -227,8 +282,8 @@ namespace LightningForge.Arcade.Game.Yahtzee
                 while (released < shouldHaveReleased && released < loose.Count)
                 {
                     Vector3 mouth = cup.position + cup.up * 0.42f;
-                    Vector3 velocity = new Vector3(2.4f, -0.6f, 0f)
-                        + new Vector3(Random.Range(-0.5f, 0.5f), 0f, Random.Range(-1.1f, 1.1f));
+                    Vector3 velocity = new Vector3(1.5f, -1.4f, 0f)
+                        + new Vector3(Random.Range(-0.4f, 0.4f), 0f, Random.Range(-0.9f, 0.9f));
                     loose[released].Throw(mouth, velocity);
                     released++;
                 }
@@ -238,12 +293,18 @@ namespace LightningForge.Arcade.Game.Yahtzee
             // Anything the loop did not get to.
             while (released < loose.Count)
             {
-                loose[released].Throw(cup.position + cup.up * 0.42f, new Vector3(2.4f, -0.6f, 0f));
+                loose[released].Throw(cup.position + cup.up * 0.42f, new Vector3(1.5f, -1.4f, 0f));
                 released++;
             }
 
             yield return MoveCup(over, rest, tipped, Quaternion.identity, 0.3f);
 
+            yield return Settle(loose);
+        }
+
+        /// <summary>Waits for the thrown dice to stop, then reads what they are showing.</summary>
+        IEnumerator Settle(List<YahtzeeDie> loose)
+        {
             // Let them tumble and stop.
             float deadline = Time.time + 6f;
             yield return new WaitForSeconds(0.35f);
@@ -263,9 +324,66 @@ namespace LightningForge.Arcade.Game.Yahtzee
             // The dice are the source of truth: read what they are actually showing.
             for (int i = 0; i < DiceCount && i < dieViews.Count; i++) dice[i] = dieViews[i].Value;
 
+            loaded.Clear();
             rolling = null;
             Raise();
             RefreshCard();
+        }
+
+        /// <summary>
+        /// The hand throw: the cup is already where the player left it, so it only has to
+        /// tip from there.
+        /// </summary>
+        IEnumerator PourFromHand()
+        {
+            var loose = new List<YahtzeeDie>(loaded);
+
+            Quaternion upright = cup.rotation;
+            Quaternion tipped = Quaternion.Euler(0f, 0f, -128f);
+            float duration = 0.4f;
+            float elapsed = 0f;
+            int released = 0;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                cup.rotation = Quaternion.Slerp(upright, tipped, t * t);
+
+                int shouldHaveReleased =
+                    Mathf.FloorToInt(Mathf.InverseLerp(0.2f, 0.8f, t) * loose.Count);
+                while (released < shouldHaveReleased && released < loose.Count)
+                {
+                    Release(loose[released]);
+                    released++;
+                }
+                yield return null;
+            }
+
+            while (released < loose.Count)
+            {
+                Release(loose[released]);
+                released++;
+            }
+
+            yield return MoveCup(cup.position, CupRest(), cup.rotation, Quaternion.identity, 0.32f);
+            yield return Settle(loose);
+        }
+
+        void Release(YahtzeeDie die)
+        {
+            Vector3 mouth = cup.position + cup.up * (CupHeight * 0.45f);
+            Vector3 velocity = cup.up * -1.4f
+                + new Vector3(Random.Range(-0.5f, 0.5f), -0.5f, Random.Range(-0.5f, 0.5f));
+            die.Throw(mouth, velocity);
+        }
+
+        /// <summary>The computer throws by the same route, without the CanRoll gate.</summary>
+        void OpponentRoll()
+        {
+            if (rolling != null) return;
+            LoadCup();
+            rolling = StartCoroutine(RollRoutine());
         }
 
         IEnumerator MoveCup(Vector3 from, Vector3 to, Quaternion fromRotation, Quaternion toRotation,
@@ -349,7 +467,7 @@ namespace LightningForge.Arcade.Game.Yahtzee
         {
             yield return new WaitForSeconds(0.5f);
 
-            Roll();
+            OpponentRoll();
             while (rolling != null) yield return null;
 
             for (int reroll = 0; reroll < RollsPerTurn - 1; reroll++)
@@ -361,7 +479,7 @@ namespace LightningForge.Arcade.Game.Yahtzee
                 LiftHeldDice();
 
                 yield return new WaitForSeconds(0.45f);
-                Roll();
+                OpponentRoll();
                 while (rolling != null) yield return null;
             }
 
@@ -391,10 +509,27 @@ namespace LightningForge.Arcade.Game.Yahtzee
 
         void Update()
         {
-            if (root == null || IsFinished || thinking != null || rolling != null) return;
+            if (root == null || IsFinished) return;
+
+            if (cupHeld)
+            {
+                SwirlCup();
+                if (WasPressedThisFrame()) Pour();
+                return;
+            }
+
+            if (thinking != null || rolling != null) return;
             if (!LocalControls(FirstSeatToPlay)) return;
-            if (!rolledThisTurn || rollsUsed >= RollsPerTurn) return;
             if (!WasPressedThisFrame()) return;
+
+            // Picking the cup up is how you roll by hand.
+            if (CanRoll() && CupUnderPointer())
+            {
+                PickUpCup();
+                return;
+            }
+
+            if (!rolledThisTurn || rollsUsed >= RollsPerTurn) return;
 
             YahtzeeDie die = DieUnderPointer();
             if (die == null) return;
@@ -402,6 +537,105 @@ namespace LightningForge.Arcade.Game.Yahtzee
             die.SetHeld(!die.Held);
             LiftHeldDice();
             Raise();
+        }
+
+        void PickUpCup()
+        {
+            LoadCup();
+            cupHeld = true;
+            cupTarget = cup.position + Vector3.up * 1.1f;
+            lastCupPosition = cup.position;
+            swirl = 0f;
+
+            if (rattleSource != null)
+            {
+                rattleSource.volume = 0f;
+                rattleSource.Play();
+            }
+            Raise();
+        }
+
+        /// <summary>
+        /// Follows the pointer while the cup is held, and turns how fast it is being moved
+        /// into how loudly the dice rattle. A cup that made the same noise however it was
+        /// moved would be worse than a silent one.
+        /// </summary>
+        void SwirlCup()
+        {
+            if (targetCamera == null) targetCamera = Camera.main;
+            if (targetCamera == null) return;
+
+            Vector2 pointer;
+            Mouse mouse = Mouse.current;
+            Touchscreen touch = Touchscreen.current;
+            if (mouse != null) pointer = mouse.position.ReadValue();
+            else if (touch != null) pointer = touch.primaryTouch.position.ReadValue();
+            else return;
+
+            // Move on a plane at the height the cup is carried at.
+            Ray ray = targetCamera.ScreenPointToRay(pointer);
+            var plane = new Plane(Vector3.up, new Vector3(0f, 1.15f, 0f));
+            if (plane.Raycast(ray, out float distance))
+            {
+                Vector3 wanted = ray.GetPoint(distance);
+                // Kept over the tray, so the dice cannot be poured onto the floor.
+                Vector3 centre = TrayCentre();
+                wanted.x = Mathf.Clamp(wanted.x, centre.x - TrayWidth * 0.4f, centre.x + TrayWidth * 0.4f);
+                wanted.z = Mathf.Clamp(wanted.z, centre.z - TrayDepth * 0.4f, centre.z + TrayDepth * 0.4f);
+                wanted.y = 1.15f;
+                cupTarget = wanted;
+            }
+
+            cup.position = Vector3.Lerp(cup.position, cupTarget, 1f - Mathf.Exp(-14f * Time.deltaTime));
+
+            // Tilt into the movement, the way a hand carrying a cup would.
+            Vector3 travel = cup.position - lastCupPosition;
+            float speed = travel.magnitude / Mathf.Max(Time.deltaTime, 0.0001f);
+            lastCupPosition = cup.position;
+
+            swirl = Mathf.Lerp(swirl, Mathf.Clamp01(speed / 6f), 1f - Mathf.Exp(-9f * Time.deltaTime));
+
+            Vector3 lean = new Vector3(travel.z, 0f, -travel.x) * 26f;
+            cup.rotation = Quaternion.Slerp(cup.rotation,
+                Quaternion.Euler(Mathf.Clamp(lean.x, -22f, 22f), 0f, Mathf.Clamp(lean.z, -22f, 22f)),
+                1f - Mathf.Exp(-8f * Time.deltaTime));
+
+            if (rattleSource != null)
+            {
+                rattleSource.volume = Mathf.Clamp01(swirl) * 0.85f;
+                rattleSource.pitch = 0.85f + swirl * 0.5f;
+            }
+        }
+
+        void Pour()
+        {
+            cupHeld = false;
+            if (rattleSource != null) rattleSource.Stop();
+
+            rollsUsed++;
+            rolledThisTurn = true;
+            countedThisRoll = true;
+            Raise();
+            RefreshCard();
+
+            rolling = StartCoroutine(PourFromHand());
+        }
+
+        bool CupUnderPointer()
+        {
+            if (targetCamera == null) targetCamera = Camera.main;
+            if (targetCamera == null || cup == null) return false;
+
+            Vector2 pointer;
+            Mouse mouse = Mouse.current;
+            Touchscreen touch = Touchscreen.current;
+            if (mouse != null) pointer = mouse.position.ReadValue();
+            else if (touch != null) pointer = touch.primaryTouch.position.ReadValue();
+            else return false;
+
+            Ray ray = targetCamera.ScreenPointToRay(pointer);
+            return Physics.Raycast(ray, out RaycastHit hit, 200f)
+                && hit.collider.transform.IsChildOf(cup);
         }
 
         static bool WasPressedThisFrame()
@@ -439,13 +673,14 @@ namespace LightningForge.Arcade.Game.Yahtzee
         /// The cup waits to the left of the tray. The scorecard occupies the right of the
         /// screen, and a cup over there is simply behind it.
         /// </summary>
-        Vector3 CupRest() => new Vector3(TrayCentre().x - TrayWidth * 0.5f - 0.8f, 0.55f, -0.5f);
+        Vector3 CupRest() =>
+            new Vector3(TrayCentre().x - TrayWidth * 0.5f - 0.75f, 0.5f, -0.4f);
 
         static Vector3 DieRestPosition(int index) =>
-            TrayCentre() + new Vector3(-1.1f + index * 0.55f, 0.24f, 0.35f);
+            TrayCentre() + new Vector3(-1.3f + index * 0.65f, 0.2f, 0.4f);
 
         static Vector3 RailPosition(int slot) =>
-            TrayCentre() + new Vector3(-1.15f + slot * 0.56f, 0.24f, -TrayDepth * 0.5f - 0.45f);
+            TrayCentre() + new Vector3(-1.3f + slot * 0.65f, 0.2f, -TrayDepth * 0.5f - 0.5f);
 
         void BuildTable()
         {
@@ -459,22 +694,35 @@ namespace LightningForge.Arcade.Game.Yahtzee
 
             // The tray: a felt floor inside four walls, which is what the dice bounce off.
             AddBox("Felt", centre + new Vector3(0f, -0.06f, 0f),
-                new Vector3(TrayWidth, 0.12f, TrayDepth), TrayFelt, true);
+                new Vector3(TrayWidth, 0.12f, TrayDepth), TrayFelt, true, 0.04f);
 
             float halfW = TrayWidth * 0.5f;
             float halfD = TrayDepth * 0.5f;
-            AddBox("Wall_Left", centre + new Vector3(-halfW - 0.11f, WallHeight * 0.5f - 0.06f, 0f),
-                new Vector3(0.22f, WallHeight, TrayDepth + 0.44f), TrayWall, true);
-            AddBox("Wall_Right", centre + new Vector3(halfW + 0.11f, WallHeight * 0.5f - 0.06f, 0f),
-                new Vector3(0.22f, WallHeight, TrayDepth + 0.44f), TrayWall, true);
-            AddBox("Wall_Far", centre + new Vector3(0f, WallHeight * 0.5f - 0.06f, halfD + 0.11f),
-                new Vector3(TrayWidth, WallHeight, 0.22f), TrayWall, true);
-            AddBox("Wall_Near", centre + new Vector3(0f, WallHeight * 0.5f - 0.06f, -halfD - 0.11f),
-                new Vector3(TrayWidth, WallHeight, 0.22f), TrayWall, true);
+            AddBox("Wall_Left", centre + new Vector3(-halfW - 0.12f, WallHeight * 0.5f - 0.06f, 0f),
+                new Vector3(0.24f, WallHeight, TrayDepth + 0.48f), TrayWall, true, 0.08f);
+            AddBox("Wall_Right", centre + new Vector3(halfW + 0.12f, WallHeight * 0.5f - 0.06f, 0f),
+                new Vector3(0.24f, WallHeight, TrayDepth + 0.48f), TrayWall, true, 0.08f);
+            AddBox("Wall_Far", centre + new Vector3(0f, WallHeight * 0.5f - 0.06f, halfD + 0.12f),
+                new Vector3(TrayWidth, WallHeight, 0.24f), TrayWall, true, 0.08f);
+            AddBox("Wall_Near", centre + new Vector3(0f, WallHeight * 0.5f - 0.06f, -halfD - 0.12f),
+                new Vector3(TrayWidth, WallHeight, 0.24f), TrayWall, true, 0.08f);
 
             // The rail behind the tray, where kept dice sit out of the throw.
-            AddBox("Rail", centre + new Vector3(0f, -0.06f, -halfD - 0.45f),
-                new Vector3(TrayWidth, 0.12f, 0.6f), TrayWall, false);
+            AddBox("Rail", centre + new Vector3(0f, -0.06f, -halfD - 0.5f),
+                new Vector3(TrayWidth, 0.12f, 0.68f), TrayWall, false, 0.05f);
+
+            // Invisible walls well above the wooden ones. A die thrown hard clears a rail
+            // it can bounce as high as, and a die that leaves the tray is gone: it lands on
+            // the floor showing a number nobody can see and the roll is lost.
+            const float containment = 2.4f;
+            AddContainment("Contain_Left", centre + new Vector3(-halfW - 0.12f, containment * 0.4f, 0f),
+                new Vector3(0.24f, containment, TrayDepth + 0.48f));
+            AddContainment("Contain_Right", centre + new Vector3(halfW + 0.12f, containment * 0.4f, 0f),
+                new Vector3(0.24f, containment, TrayDepth + 0.48f));
+            AddContainment("Contain_Far", centre + new Vector3(0f, containment * 0.4f, halfD + 0.12f),
+                new Vector3(TrayWidth, containment, 0.24f));
+            AddContainment("Contain_Near", centre + new Vector3(0f, containment * 0.4f, -halfD - 0.12f),
+                new Vector3(TrayWidth, containment, 0.24f));
 
             BuildCup();
 
@@ -500,41 +748,48 @@ namespace LightningForge.Arcade.Game.Yahtzee
             cup = go.transform;
             cup.position = CupRest();
 
-            const int staves = 12;
-            const float radius = 0.34f;
-            Material material = ArcadeMaterials.Get(CupColour, 0.35f);
+            var shell = new GameObject("Shell");
+            shell.transform.SetParent(cup, false);
+            shell.AddComponent<MeshFilter>().sharedMesh =
+                ArcadeMeshes.Tube(CupRadius, CupRadius - 0.055f, CupHeight, 44);
+            shell.AddComponent<MeshRenderer>().sharedMaterial =
+                ArcadeMaterials.Get(CupColour, 0.35f);
 
-            for (int i = 0; i < staves; i++)
-            {
-                float angle = i * Mathf.PI * 2f / staves;
-                var stave = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                stave.name = "Stave" + i;
-                stave.transform.SetParent(cup, false);
-                stave.transform.localPosition =
-                    new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
-                stave.transform.localRotation = Quaternion.Euler(0f, -angle * Mathf.Rad2Deg, 0f);
-                stave.transform.localScale = new Vector3(0.07f, 0.86f, 0.2f);
-                Destroy(stave.GetComponent<Collider>());
-                stave.GetComponent<MeshRenderer>().sharedMaterial = material;
-            }
+            // A capsule stood in for the cup would be picked at the wrong place; this
+            // matches what the player sees closely enough to click.
+            var picker = cup.gameObject.AddComponent<CapsuleCollider>();
+            picker.radius = CupRadius;
+            picker.height = CupHeight;
+            picker.direction = 1;
 
-            var baseDisc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            baseDisc.name = "Base";
-            baseDisc.transform.SetParent(cup, false);
-            baseDisc.transform.localPosition = new Vector3(0f, -0.44f, 0f);
-            baseDisc.transform.localScale = new Vector3(radius * 2.1f, 0.04f, radius * 2.1f);
-            Destroy(baseDisc.GetComponent<Collider>());
-            baseDisc.GetComponent<MeshRenderer>().sharedMaterial = material;
+            // Loud enough to hear over the dice, quiet enough not to be the whole scene.
+            rattleSource = ArcadeAudio.AddSource(cup.gameObject, ArcadeAudio.Rattle(), true);
         }
 
-        void AddBox(string name, Vector3 localPosition, Vector3 scale, Color colour, bool collide)
+        /// <summary>A collider with nothing to look at, purely to keep the dice in.</summary>
+        void AddContainment(string name, Vector3 localPosition, Vector3 size)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(root, false);
+            go.transform.localPosition = localPosition;
+            go.AddComponent<BoxCollider>().size = size;
+        }
+
+        void AddBox(string name, Vector3 localPosition, Vector3 scale, Color colour,
+            bool collide, float bevel)
         {
             var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
             box.name = name;
             box.transform.SetParent(root, false);
             box.transform.localPosition = localPosition;
-            box.transform.localScale = scale;
-            if (!collide) Destroy(box.GetComponent<Collider>());
+            // The mesh carries the real size so the bevel stays the same width on every
+            // face; scaling a unit cube would stretch it.
+            box.transform.localScale = Vector3.one;
+            ArcadeMeshes.ApplyMesh(box, ArcadeMeshes.RoundedBox(scale, bevel, 5));
+
+            if (collide) box.GetComponent<BoxCollider>().size = scale;
+            else Destroy(box.GetComponent<Collider>());
+
             box.GetComponent<MeshRenderer>().sharedMaterial = ArcadeMaterials.Get(colour, 0.2f);
         }
 

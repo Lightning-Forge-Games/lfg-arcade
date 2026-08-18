@@ -408,13 +408,9 @@ namespace LightningForge.Arcade.Game.Connect4
 
         void AddBox(string name, Vector3 localPosition, Vector3 scale, Color colour)
         {
-            var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            box.name = name;
-            box.transform.SetParent(root, false);
-            box.transform.localPosition = localPosition;
-            box.transform.localScale = scale;
-            Destroy(box.GetComponent<Collider>());
-            box.GetComponent<MeshRenderer>().sharedMaterial = ArcadeMaterials.Get(colour, 0.3f);
+            float bevel = Mathf.Min(0.05f, Mathf.Min(scale.x, Mathf.Min(scale.y, scale.z)) * 0.3f);
+            ArcadeMeshes.Box(root, name, localPosition, scale, bevel,
+                ArcadeMaterials.Get(colour, 0.3f), false);
         }
 
         static float ColumnX(int column) => (column - (Connect4Board.Columns - 1) * 0.5f) * Cell;

@@ -46,8 +46,12 @@ namespace LightningForge.Arcade.Game
             switch (value)
             {
                 case 2: return Quaternion.Euler(-90f, 0f, 0f);
-                case 3: return Quaternion.Euler(0f, 0f, -90f);
-                case 4: return Quaternion.Euler(0f, 0f, 90f);
+                // Three sits on +X, so it needs a positive turn about Z to bring it up.
+                // Getting these the wrong way round silently swaps threes and fours the
+                // moment a die is squared up, which is a horrible bug to see and an easy
+                // one to write.
+                case 3: return Quaternion.Euler(0f, 0f, 90f);
+                case 4: return Quaternion.Euler(0f, 0f, -90f);
                 case 5: return Quaternion.Euler(90f, 0f, 0f);
                 case 6: return Quaternion.Euler(180f, 0f, 0f);
                 default: return Quaternion.identity;

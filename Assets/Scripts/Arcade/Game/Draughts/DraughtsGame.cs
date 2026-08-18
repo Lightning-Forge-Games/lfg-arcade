@@ -360,7 +360,8 @@ namespace LightningForge.Arcade.Game.Draughts
             go.name = (piece.Side == DraughtsSide.White ? "White" : "Black") + (piece.IsKing ? "King" : "Man");
             go.transform.SetParent(boardView.transform.parent, false);
             go.transform.position = boardView.SquareSurface(square);
-            go.transform.localScale = new Vector3(0.72f, 0.11f, 0.72f);
+            go.transform.localScale = Vector3.one;
+            ArcadeMeshes.ApplyMesh(go, ArcadeMeshes.Counter(0.36f, 0.11f));
             Destroy(go.GetComponent<Collider>());
 
             go.GetComponent<MeshRenderer>().sharedMaterial = ArcadeMaterials.Get(

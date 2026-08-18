@@ -111,7 +111,12 @@ namespace LightningForge.Arcade.Game
 
                 if (squarePrefab == null)
                 {
-                    go.transform.localScale = new Vector3(squareSize, squareThickness, squareSize);
+                    // A softened edge on every square is what stops a procedural board
+                    // reading as sixty four flat tiles.
+                    go.transform.localScale = Vector3.one;
+                    var size = new Vector3(squareSize, squareThickness, squareSize);
+                    ArcadeMeshes.ApplyMesh(go, ArcadeMeshes.RoundedBox(size, squareThickness * 0.11f, 4));
+                    go.GetComponent<BoxCollider>().size = size;
                 }
 
                 var renderer = go.GetComponentInChildren<Renderer>();
@@ -162,14 +167,9 @@ namespace LightningForge.Arcade.Game
 
         void AddFramePart(Transform parent, string name, Vector3 localPosition, Vector3 scale)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = name;
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = localPosition;
-            go.transform.localScale = scale;
-
-            var renderer = go.GetComponent<Renderer>();
-            if (renderer != null && frameMaterial != null) renderer.sharedMaterial = frameMaterial;
+            ArcadeMeshes.Box(parent, name, localPosition, scale,
+                Mathf.Min(0.06f, Mathf.Min(scale.x, Mathf.Min(scale.y, scale.z)) * 0.3f),
+                frameMaterial, false);
         }
 
         GameObject CreatePrimitiveSquare()

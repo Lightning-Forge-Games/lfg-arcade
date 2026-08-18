@@ -13,6 +13,9 @@ namespace LightningForge.Arcade.Game.Yahtzee
     [RequireComponent(typeof(Rigidbody), typeof(BoxCollider))]
     public class YahtzeeDie : MonoBehaviour
     {
+        /// <summary>Edge length. Deliberately small: the tray wants room to scatter.</summary>
+        public const float Size = 0.34f;
+
         Rigidbody body;
         MeshRenderer shell;
         Color faceColour;
@@ -32,7 +35,11 @@ namespace LightningForge.Arcade.Game.Yahtzee
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = "Die";
             go.transform.SetParent(parent, false);
-            go.transform.localScale = Vector3.one * 0.42f;
+            go.transform.localScale = Vector3.one * Size;
+
+            // A real die has softened edges, and a sharp one catches no light along its
+            // length. The collider stays a plain box: physics does not care about a bevel.
+            ArcadeMeshes.ApplyMesh(go, ArcadeMeshes.RoundedBox(Vector3.one, 0.13f, 6));
 
             var die = go.AddComponent<YahtzeeDie>();
             die.shell = go.GetComponent<MeshRenderer>();
@@ -64,7 +71,7 @@ namespace LightningForge.Arcade.Game.Yahtzee
             if (dicePhysics != null) return dicePhysics;
             dicePhysics = new PhysicsMaterial("YahtzeeDie")
             {
-                bounciness = 0.32f,
+                bounciness = 0.18f,
                 dynamicFriction = 0.42f,
                 staticFriction = 0.5f,
                 frictionCombine = PhysicsMaterialCombine.Average,
@@ -76,6 +83,7 @@ namespace LightningForge.Arcade.Game.Yahtzee
         /// <summary>Throws the die from a point, with enough spin to tumble properly.</summary>
         public void Throw(Vector3 from, Vector3 velocity)
         {
+            transform.SetParent(null, true);
             body.isKinematic = false;
             transform.position = from;
             transform.rotation = UnityEngine.Random.rotation;
@@ -84,6 +92,20 @@ namespace LightningForge.Arcade.Game.Yahtzee
             // looks placed rather than thrown.
             body.angularVelocity = UnityEngine.Random.insideUnitSphere * 22f;
             body.WakeUp();
+        }
+
+        /// <summary>
+        /// Tucks the die inside the cup and lets it ride along. Kinematic on purpose: dice
+        /// bouncing around inside a moving cup is a fight with the physics engine for an
+        /// effect nobody can see through the walls.
+        /// </summary>
+        public void StowIn(Transform cup, Vector3 localPosition)
+        {
+            body.isKinematic = true;
+            Halt();
+            transform.SetParent(cup, false);
+            transform.localPosition = localPosition;
+            transform.localRotation = Random.rotation;
         }
 
         public void Halt()
@@ -99,6 +121,7 @@ namespace LightningForge.Arcade.Game.Yahtzee
         public void Park(Vector3 position)
         {
             int showing = Value;
+            transform.SetParent(null, true);
             body.isKinematic = true;
             Halt();
             transform.position = position;

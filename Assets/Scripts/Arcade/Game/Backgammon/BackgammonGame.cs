@@ -668,7 +668,8 @@ namespace LightningForge.Arcade.Game.Backgammon
             go.name = side + "Checker";
             go.transform.SetParent(root, false);
             go.transform.localPosition = localPosition;
-            go.transform.localScale = new Vector3(CheckerRadius * 2f, CheckerHeight * 0.5f, CheckerRadius * 2f);
+            go.transform.localScale = Vector3.one;
+            ArcadeMeshes.ApplyMesh(go, ArcadeMeshes.Counter(CheckerRadius, CheckerHeight));
             Destroy(go.GetComponent<Collider>());
             go.GetComponent<MeshRenderer>().sharedMaterial = ArcadeMaterials.Get(
                 side == BackgammonSide.White ? WhiteChecker : BlackChecker, 0.4f);
@@ -714,13 +715,9 @@ namespace LightningForge.Arcade.Game.Backgammon
 
         void AddBox(string name, Vector3 localPosition, Vector3 scale, Color colour)
         {
-            var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            box.name = name;
-            box.transform.SetParent(root, false);
-            box.transform.localPosition = localPosition;
-            box.transform.localScale = scale;
-            Destroy(box.GetComponent<Collider>());
-            box.GetComponent<MeshRenderer>().sharedMaterial = ArcadeMaterials.Get(colour, 0.25f);
+            float bevel = Mathf.Min(0.07f, Mathf.Min(scale.x, Mathf.Min(scale.y, scale.z)) * 0.3f);
+            ArcadeMeshes.Box(root, name, localPosition, scale, bevel,
+                ArcadeMaterials.Get(colour, 0.25f), false);
         }
     }
 

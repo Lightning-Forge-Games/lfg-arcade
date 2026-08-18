@@ -616,16 +616,13 @@ namespace LightningForge.Arcade.Game.Snooker
 
         void AddBox(string name, Vector3 localPosition, Vector3 scale, Color colour, bool collide)
         {
-            var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            box.name = name;
-            box.transform.SetParent(root, false);
-            box.transform.localPosition = localPosition;
-            box.transform.localScale = scale;
+            float bevel = Mathf.Min(0.05f, Mathf.Min(scale.x, Mathf.Min(scale.y, scale.z)) * 0.28f);
+            GameObject box = ArcadeMeshes.Box(root, name, localPosition, scale, bevel,
+                ArcadeMaterials.Get(colour, 0.2f), collide);
 
+            // A rounded cushion nose is also a better one to play off: a hard square edge
+            // returns the ball at whatever angle the corner happened to catch it.
             if (collide) box.GetComponent<Collider>().material = CushionPhysics();
-            else Destroy(box.GetComponent<Collider>());
-
-            box.GetComponent<MeshRenderer>().sharedMaterial = ArcadeMaterials.Get(colour, 0.2f);
         }
     }
 }
