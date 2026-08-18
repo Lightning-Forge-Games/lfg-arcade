@@ -84,25 +84,24 @@ namespace LightningForge.Arcade.Game.Draughts
 
             if (cameraRig != null)
             {
-                // The flat board framing, seen from whichever side is being played.
-                cameraRig.ClearFramingOverride();
+                // Steeper than chess. Draughts is read along its diagonals, and the low
+                // chess angle foreshortens the far half until they stop lining up by eye.
                 cameraRig.SetViewpoint(Setup.Control == ControlMode.BlackOnly
                     ? Core.Chess.PieceColor.Black
                     : Core.Chess.PieceColor.White);
+                cameraRig.OverrideFraming(new BoardFraming
+                {
+                    Focus = Vector3.zero,
+                    Height = 12.6f,
+                    Distance = 5.2f,
+                    Pitch = 68f,
+                    Fov = 40f,
+                    HalfExtent = 5.1f,
+                    FlipsWithViewpoint = true,
+                });
             }
 
             MaybeStartThinking();
-        }
-
-        public override void End()
-        {
-            StopWork();
-            if (boardView != null)
-            {
-                Destroy(boardView.gameObject);
-                boardView = null;
-            }
-            pieces.Clear();
         }
 
         public override void Restart()
@@ -113,6 +112,18 @@ namespace LightningForge.Arcade.Game.Draughts
             ClearSelection();
             Raise();
             MaybeStartThinking();
+        }
+
+        public override void End()
+        {
+            StopWork();
+            if (cameraRig != null) cameraRig.ClearFramingOverride();
+            if (boardView != null)
+            {
+                Destroy(boardView.gameObject);
+                boardView = null;
+            }
+            pieces.Clear();
         }
 
         public override void AssignOnlineSide(bool firstSeat)

@@ -116,9 +116,9 @@ namespace LightningForge.Arcade.Game.Snooker
                 cameraRig.OverrideFraming(new BoardFraming
                 {
                     Focus = Vector3.zero,
-                    Height = 6.6f,
-                    Distance = 4.4f,
-                    Pitch = 58f,
+                    Height = 8.4f,
+                    Distance = 2.6f,
+                    Pitch = 73f,
                     Fov = 42f,
                     HalfExtent = TableLength * 0.56f,
                 });

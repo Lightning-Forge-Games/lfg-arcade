@@ -113,9 +113,9 @@ namespace LightningForge.Arcade.Game.Backgammon
                     // A backgammon board is much deeper than a chess board, so it needs a
                     // steeper, further view to get both rows of points on screen at once.
                     Focus = Vector3.zero,
-                    Height = 15f,
-                    Distance = 10.5f,
-                    Pitch = 56f,
+                    Height = 17.5f,
+                    Distance = 5.6f,
+                    Pitch = 73f,
                     Fov = 42f,
                     HalfExtent = 8.2f,
                 });

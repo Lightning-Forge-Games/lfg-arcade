@@ -21,6 +21,13 @@ namespace LightningForge.Arcade.Game
 
         /// <summary>Half the board's width, so narrow screens still fit it all in.</summary>
         public float HalfExtent;
+
+        /// <summary>
+        /// Whether the view swings round when the viewpoint changes. True for sided boards
+        /// like draughts, where a player should sit behind their own pieces. False for a
+        /// board both players read from the same end, where flipping would only confuse.
+        /// </summary>
+        public bool FlipsWithViewpoint;
     }
 
     /// <summary>How steeply the board is viewed.</summary>
@@ -184,8 +191,10 @@ namespace LightningForge.Arcade.Game
                 fov = f.Fov;
                 float pull = Pullback(fov, f.HalfExtent,
                     Mathf.Sqrt(f.Height * f.Height + f.Distance * f.Distance));
-                position = f.Focus + new Vector3(0f, f.Height * pull, -f.Distance * pull);
-                rotation = Quaternion.Euler(f.Pitch, 0f, 0f);
+
+                float flip = f.FlipsWithViewpoint && viewpoint == PieceColor.Black ? -1f : 1f;
+                position = f.Focus + new Vector3(0f, f.Height * pull, -f.Distance * pull * flip);
+                rotation = Quaternion.Euler(f.Pitch, flip < 0f ? 180f : 0f, 0f);
                 return;
             }
 
