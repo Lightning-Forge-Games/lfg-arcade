@@ -1,8 +1,9 @@
+using LightningForge.Arcade.Core;
 using System;
-using LightningForge.Chess.Core;
+using LightningForge.Arcade.Core.Chess;
 using NUnit.Framework;
 
-namespace LightningForge.Chess.Tests
+namespace LightningForge.Arcade.Tests
 {
     /// <summary>
     /// Tests the search on positions with one clearly correct answer. A chess engine is

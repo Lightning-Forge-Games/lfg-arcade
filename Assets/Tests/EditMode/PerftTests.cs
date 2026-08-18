@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using LightningForge.Chess.Core;
+using LightningForge.Arcade.Core.Chess;
 using NUnit.Framework;
 
-namespace LightningForge.Chess.Tests
+namespace LightningForge.Arcade.Tests
 {
     /// <summary>
     /// Perft (performance test) counts leaf nodes of the move tree to a fixed depth. The

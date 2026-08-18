@@ -1,7 +1,7 @@
-using LightningForge.Chess.Core;
+using LightningForge.Arcade.Core.Chess;
 using NUnit.Framework;
 
-namespace LightningForge.Chess.Tests
+namespace LightningForge.Arcade.Tests
 {
     public class SanWriterTests
     {

@@ -1,11 +1,13 @@
+using LightningForge.Arcade.Core;
 using System.Collections;
-using LightningForge.Chess.Core;
-using LightningForge.Chess.Game;
+using LightningForge.Arcade.Core.Chess;
+using LightningForge.Arcade.Game;
+using LightningForge.Arcade.Game.Chess;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace LightningForge.Chess.Tests.PlayMode
+namespace LightningForge.Arcade.Tests.PlayMode
 {
     /// <summary>
     /// Covers the bookkeeping that keeps piece views aligned with the board across animated
@@ -27,7 +29,7 @@ namespace LightningForge.Chess.Tests.PlayMode
         static ChessGameController Build(string fen)
         {
             var go = new GameObject("TestGame");
-            var boardView = go.AddComponent<ChessBoardView>();
+            var boardView = go.AddComponent<SquareBoardView>();
             var factory = go.AddComponent<PieceViewFactory>();
             var controller = go.AddComponent<ChessGameController>();
 

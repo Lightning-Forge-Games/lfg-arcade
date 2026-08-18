@@ -1,0 +1,19 @@
+{
+    "name": "LightningForge.Arcade.Editor",
+    "rootNamespace": "LightningForge.Arcade.EditorTools",
+    "references": [
+        "LightningForge.Arcade.Core",
+        "LightningForge.Arcade.Game"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
