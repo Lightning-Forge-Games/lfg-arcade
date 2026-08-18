@@ -26,6 +26,14 @@ namespace LightningForge.Chess.Game
 
         [SerializeField] PieceStyle style = PieceStyle.Sculpted;
 
+        [Tooltip("Used to keep token icons upright for whichever side is being viewed from.")]
+        [SerializeField] BoardCameraRig cameraRig;
+
+        void Awake()
+        {
+            if (cameraRig == null) cameraRig = FindFirstObjectByType<BoardCameraRig>();
+        }
+
         /// <summary>Which set is drawn. Existing views are not affected; rebuild to apply.</summary>
         public PieceStyle Style
         {
@@ -50,14 +58,29 @@ namespace LightningForge.Chess.Game
                 : CreateStandIn(type, color, parent);
 
             instance.name = $"{color}_{type}";
+            instance.transform.localRotation = RotationFor(color);
+            return instance;
+        }
 
-            // Models face +Z. Turn Black around so the two sides face each other, which
-            // only shows on the knight but is what a real set looks like.
-            instance.transform.localRotation = color == PieceColor.Black
+        /// <summary>
+        /// Sculpted models face +Z, so Black turns around and the two sides face each
+        /// other, as a real set does. Tokens are flat icons rather than objects with a
+        /// front, so instead of following the piece's colour they follow the viewer, and
+        /// both sides stay the right way up for whoever is looking.
+        /// </summary>
+        Quaternion RotationFor(PieceColor color)
+        {
+            if (style == PieceStyle.Token)
+            {
+                PieceColor viewpoint = cameraRig != null ? cameraRig.Viewpoint : PieceColor.White;
+                return viewpoint == PieceColor.White
+                    ? Quaternion.identity
+                    : Quaternion.Euler(0f, 180f, 0f);
+            }
+
+            return color == PieceColor.Black
                 ? Quaternion.Euler(0f, 180f, 0f)
                 : Quaternion.identity;
-
-            return instance;
         }
 
         GameObject FindPrefab(PieceType type, PieceColor color)

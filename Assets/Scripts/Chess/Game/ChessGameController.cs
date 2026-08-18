@@ -114,6 +114,27 @@ namespace LightningForge.Chess.Game
             EnsureInitialised();
         }
 
+        void OnEnable()
+        {
+            BoardCameraRig rig = FindFirstObjectByType<BoardCameraRig>();
+            if (rig != null) rig.ViewpointChanged += OnViewpointChanged;
+        }
+
+        void OnDisable()
+        {
+            BoardCameraRig rig = FindFirstObjectByType<BoardCameraRig>();
+            if (rig != null) rig.ViewpointChanged -= OnViewpointChanged;
+        }
+
+        /// <summary>
+        /// Token icons are oriented for the viewer, so flipping sides means respawning
+        /// them. Sculpted pieces face by colour and are unaffected.
+        /// </summary>
+        void OnViewpointChanged(PieceColor viewpoint)
+        {
+            if (pieceFactory != null && pieceFactory.Style == PieceStyle.Token) RefreshPieceViews();
+        }
+
         /// <summary>
         /// Rebuilds state if it is missing. <see cref="board"/> is a plain C# object, so a
         /// domain reload while in play mode (any script recompile) wipes it without Awake

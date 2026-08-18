@@ -358,6 +358,7 @@ MonoBehaviour:
     WhitePrefab: {fileID: 2773073807956398729, guid: b05698caa8c4ace43bcb5d62135158c2, type: 3}
     BlackPrefab: {fileID: 8886490926459915645, guid: c1a92a0eeb76ac5409807fbeeff58cc0, type: 3}
   style: 0
+  cameraRig: {fileID: 1752491944}
   whiteMaterial: {fileID: 2100000, guid: 3a66d1b1c22685b44abafc094a4d7b3a, type: 2}
   blackMaterial: {fileID: 2100000, guid: 9f4063de2d78bfa49aa64c9d2841a490, type: 2}
   pawnHeight: 0.5

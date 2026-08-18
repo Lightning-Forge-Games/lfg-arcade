@@ -169,48 +169,60 @@ namespace LightningForge.Chess.EditorTools
         {
             switch (type)
             {
+                // Big round head on a narrow neck, over a wide flared base.
                 case PieceType.Pawn:
                     return new[]
                     {
-                        new Vector2(0f, 0f), new Vector2(0.30f, 0f), new Vector2(0.26f, 0.09f),
-                        new Vector2(0.14f, 0.16f), new Vector2(0.12f, 0.36f), new Vector2(0.19f, 0.42f),
-                        new Vector2(0.19f, 0.48f), new Vector2(0.10f, 0.55f), new Vector2(0f, 0.60f)
+                        new Vector2(0f, 0f), new Vector2(0.38f, 0f), new Vector2(0.38f, 0.08f),
+                        new Vector2(0.28f, 0.12f), new Vector2(0.19f, 0.18f), new Vector2(0.145f, 0.32f),
+                        new Vector2(0.14f, 0.40f), new Vector2(0.20f, 0.455f), new Vector2(0.25f, 0.54f),
+                        new Vector2(0.25f, 0.64f), new Vector2(0.19f, 0.74f), new Vector2(0.10f, 0.80f),
+                        new Vector2(0f, 0.82f)
                     };
 
+                // Traversed bottom to top up the right side. Mirroring turns the single
+                // centre merlon and one outer merlon into the familiar three.
                 case PieceType.Rook:
                     return new[]
                     {
-                        new Vector2(0f, 0f), new Vector2(0.32f, 0f), new Vector2(0.27f, 0.10f),
-                        new Vector2(0.19f, 0.18f), new Vector2(0.19f, 0.52f), new Vector2(0.30f, 0.58f),
-                        new Vector2(0.30f, 0.76f), new Vector2(0.22f, 0.76f), new Vector2(0.22f, 0.66f),
-                        new Vector2(0.11f, 0.66f), new Vector2(0.11f, 0.76f), new Vector2(0f, 0.76f)
+                        new Vector2(0f, 0f), new Vector2(0.40f, 0f), new Vector2(0.40f, 0.09f),
+                        new Vector2(0.29f, 0.14f), new Vector2(0.235f, 0.24f), new Vector2(0.225f, 0.46f),
+                        new Vector2(0.35f, 0.55f), new Vector2(0.35f, 0.84f), new Vector2(0.205f, 0.84f),
+                        new Vector2(0.205f, 0.68f), new Vector2(0.095f, 0.68f), new Vector2(0.095f, 0.84f),
+                        new Vector2(0f, 0.84f)
                     };
 
+                // Teardrop mitre with a small finial ball on top.
                 case PieceType.Bishop:
                     return new[]
                     {
-                        new Vector2(0f, 0f), new Vector2(0.31f, 0f), new Vector2(0.26f, 0.09f),
-                        new Vector2(0.14f, 0.17f), new Vector2(0.12f, 0.45f), new Vector2(0.22f, 0.52f),
-                        new Vector2(0.19f, 0.60f), new Vector2(0.17f, 0.78f), new Vector2(0.08f, 0.90f),
-                        new Vector2(0f, 0.94f)
+                        new Vector2(0f, 0f), new Vector2(0.38f, 0f), new Vector2(0.38f, 0.08f),
+                        new Vector2(0.28f, 0.13f), new Vector2(0.21f, 0.21f), new Vector2(0.245f, 0.36f),
+                        new Vector2(0.265f, 0.52f), new Vector2(0.215f, 0.63f), new Vector2(0.125f, 0.71f),
+                        new Vector2(0.10f, 0.765f), new Vector2(0.135f, 0.825f), new Vector2(0.09f, 0.875f),
+                        new Vector2(0f, 0.89f)
                     };
 
+                // Crown of points; mirroring gives five, as a queen's coronet reads.
                 case PieceType.Queen:
                     return new[]
                     {
-                        new Vector2(0f, 0f), new Vector2(0.33f, 0f), new Vector2(0.28f, 0.10f),
-                        new Vector2(0.15f, 0.19f), new Vector2(0.13f, 0.55f), new Vector2(0.26f, 0.64f),
-                        new Vector2(0.30f, 0.92f), new Vector2(0.22f, 0.82f), new Vector2(0.16f, 0.95f),
-                        new Vector2(0.09f, 0.83f), new Vector2(0f, 0.96f)
+                        new Vector2(0f, 0f), new Vector2(0.40f, 0f), new Vector2(0.40f, 0.09f),
+                        new Vector2(0.30f, 0.14f), new Vector2(0.225f, 0.22f), new Vector2(0.21f, 0.42f),
+                        new Vector2(0.345f, 0.53f), new Vector2(0.375f, 0.63f), new Vector2(0.385f, 0.755f),
+                        new Vector2(0.275f, 0.625f), new Vector2(0.205f, 0.79f), new Vector2(0.115f, 0.625f),
+                        new Vector2(0.065f, 0.83f), new Vector2(0f, 0.835f)
                     };
 
+                // Bulbous crown carrying a cross.
                 case PieceType.King:
                     return new[]
                     {
-                        new Vector2(0f, 0f), new Vector2(0.33f, 0f), new Vector2(0.28f, 0.10f),
-                        new Vector2(0.15f, 0.19f), new Vector2(0.13f, 0.56f), new Vector2(0.26f, 0.64f),
-                        new Vector2(0.22f, 0.80f), new Vector2(0.09f, 0.84f), new Vector2(0.09f, 0.90f),
-                        new Vector2(0.05f, 0.90f), new Vector2(0.05f, 1.00f), new Vector2(0f, 1.00f)
+                        new Vector2(0f, 0f), new Vector2(0.40f, 0f), new Vector2(0.40f, 0.09f),
+                        new Vector2(0.30f, 0.14f), new Vector2(0.225f, 0.22f), new Vector2(0.235f, 0.42f),
+                        new Vector2(0.35f, 0.55f), new Vector2(0.315f, 0.68f), new Vector2(0.19f, 0.755f),
+                        new Vector2(0.105f, 0.755f), new Vector2(0.105f, 0.835f), new Vector2(0.052f, 0.835f),
+                        new Vector2(0.052f, 0.96f), new Vector2(0f, 0.96f)
                     };
 
                 default:
@@ -218,19 +230,24 @@ namespace LightningForge.Chess.EditorTools
             }
         }
 
-        /// <summary>The knight is drawn as a full outline: a horse head has no axis of symmetry.</summary>
+        /// <summary>
+        /// The knight is drawn as a full outline: a horse head has no axis of symmetry.
+        /// Wound anticlockwise starting at the bottom left of the base.
+        /// </summary>
         static Vector2[] KnightOutline()
         {
             return new[]
             {
-                new Vector2(-0.30f, 0f),   new Vector2(0.30f, 0f),
-                new Vector2(0.24f, 0.10f), new Vector2(0.12f, 0.18f),
-                new Vector2(0.14f, 0.40f), new Vector2(0.30f, 0.50f),
-                new Vector2(0.34f, 0.62f), new Vector2(0.26f, 0.70f),
-                new Vector2(0.10f, 0.73f), new Vector2(0.05f, 0.88f),
-                new Vector2(-0.03f, 0.74f), new Vector2(-0.12f, 0.82f),
-                new Vector2(-0.20f, 0.66f), new Vector2(-0.24f, 0.44f),
-                new Vector2(-0.16f, 0.24f), new Vector2(-0.24f, 0.10f)
+                new Vector2(-0.38f, 0f),   new Vector2(0.38f, 0f),
+                new Vector2(0.38f, 0.085f), new Vector2(0.28f, 0.13f),
+                new Vector2(0.245f, 0.235f), new Vector2(0.30f, 0.40f),
+                new Vector2(0.375f, 0.545f), new Vector2(0.35f, 0.65f),
+                new Vector2(0.235f, 0.70f),  new Vector2(0.175f, 0.775f),
+                new Vector2(0.10f, 0.925f),  new Vector2(0.02f, 0.80f),
+                new Vector2(-0.095f, 0.885f), new Vector2(-0.185f, 0.775f),
+                new Vector2(-0.25f, 0.60f),  new Vector2(-0.245f, 0.42f),
+                new Vector2(-0.145f, 0.26f), new Vector2(-0.20f, 0.16f),
+                new Vector2(-0.29f, 0.13f)
             };
         }
 

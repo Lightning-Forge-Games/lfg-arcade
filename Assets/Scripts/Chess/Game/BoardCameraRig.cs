@@ -58,6 +58,9 @@ namespace LightningForge.Chess.Game
         /// <summary>Raised whenever the view changes, so UI can keep its label in step.</summary>
         public event Action<BoardViewStyle> StyleChanged;
 
+        /// <summary>Raised when the side being viewed from changes.</summary>
+        public event Action<PieceColor> ViewpointChanged;
+
         void Awake()
         {
             if (target == null) target = Camera.main;
@@ -73,6 +76,9 @@ namespace LightningForge.Chess.Game
             if (viewpoint == side && transition == null) return;
             viewpoint = side;
             Apply(!Application.isPlaying || transitionSeconds <= 0f);
+
+            Action<PieceColor> handler = ViewpointChanged;
+            if (handler != null) handler(viewpoint);
         }
 
         public void SetStyle(BoardViewStyle newStyle)
