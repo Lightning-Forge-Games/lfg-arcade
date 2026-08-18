@@ -281,6 +281,7 @@ GameObject:
   - component: {fileID: 653221820}
   - component: {fileID: 653221821}
   - component: {fileID: 653221822}
+  - component: {fileID: 653221823}
   m_Layer: 0
   m_Name: Chess Game
   m_TagString: Untagged
@@ -468,6 +469,22 @@ MonoBehaviour:
   rowSpacing: 0.9
   columnSpacing: 0.9
   piecesPerColumn: 8
+--- !u!114 &653221823
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 653221814}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d080ebd24aeebf64ab4f7583b9cb21b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: LightningForge.Arcade.Game::LightningForge.Arcade.Game.Chess.ChessArcadeGame
+  controller: {fileID: 0}
+  ai: {fileID: 0}
+  cameraRig: {fileID: 0}
+  hud: {fileID: 0}
 --- !u!1 &829050092
 GameObject:
   m_ObjectHideFlags: 0
@@ -836,7 +853,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: LightningForge.Chess.Net::LightningForge.Chess.Net.ChessOnlineHud
   session: {fileID: 1037292490}
-  titleScreen: {fileID: 2067275725}
+  shell: {fileID: 0}
 --- !u!114 &1037292493
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -891,7 +908,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: LightningForge.Chess.Game::LightningForge.Chess.Game.ChessHud
   controller: {fileID: 653221815}
-  titleScreen: {fileID: 2067275725}
+  shell: {fileID: 0}
   cameraRig: {fileID: 1752491944}
   pieceFactory: {fileID: 653221816}
 --- !u!114 &1686781884
@@ -1105,31 +1122,14 @@ GameObject:
   m_Component:
   - component: {fileID: 2067275727}
   - component: {fileID: 2067275726}
-  - component: {fileID: 2067275725}
+  - component: {fileID: 2067275728}
   m_Layer: 0
-  m_Name: Title Screen
+  m_Name: Arcade Shell
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &2067275725
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2067275724}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c39e5a7056fde684ca66ecf069f11549, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: LightningForge.Chess.Game::LightningForge.Chess.Game.TitleScreen
-  controller: {fileID: 653221815}
-  ai: {fileID: 653221820}
-  hud: {fileID: 1686781883}
-  cameraRig: {fileID: 1752491944}
-  gameTitle: CHESS
 --- !u!114 &2067275726
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1168,6 +1168,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2067275728
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2067275724}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6850e7ee311aa0947acbe754f5fabe33, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: LightningForge.Arcade.Game::LightningForge.Arcade.Game.ArcadeShell
+  cameraRig: {fileID: 0}
+  arcadeTitle: LFG ARCADE
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

@@ -16,7 +16,7 @@ namespace LightningForge.Arcade.Game.Chess
     public class ChessHud : MonoBehaviour
     {
         [SerializeField] ChessGameController controller;
-        [SerializeField] TitleScreen titleScreen;
+        [SerializeField] ArcadeShell shell;
         [SerializeField] BoardCameraRig cameraRig;
         [SerializeField] PieceViewFactory pieceFactory;
 
@@ -40,7 +40,7 @@ namespace LightningForge.Arcade.Game.Chess
         {
             document = GetComponent<UIDocument>();
             if (controller == null) controller = FindFirstObjectByType<ChessGameController>();
-            if (titleScreen == null) titleScreen = FindFirstObjectByType<TitleScreen>();
+            if (shell == null) shell = FindFirstObjectByType<ArcadeShell>();
             if (cameraRig == null) cameraRig = FindFirstObjectByType<BoardCameraRig>();
             if (pieceFactory == null) pieceFactory = FindFirstObjectByType<PieceViewFactory>();
         }
@@ -57,6 +57,10 @@ namespace LightningForge.Arcade.Game.Chess
                 controller.PromotionRequested += OnPromotionRequested;
             }
             Refresh();
+
+            // The arcade grid is up at launch, so the in game HUD must not be. Only the
+            // game itself turns this on, when it begins.
+            SetVisible(shell == null || !shell.IsShowing);
         }
 
         void OnDisable()
@@ -145,9 +149,9 @@ namespace LightningForge.Arcade.Game.Chess
 
             // No New Game control here: Quit to Menu leads straight back to setting one up,
             // so a second route to the same thing is just clutter over the board.
-            controls.Add(MakeControl("Quit to Menu", () =>
+            controls.Add(MakeControl("Quit to Arcade", () =>
             {
-                if (titleScreen != null) titleScreen.QuitToMenu();
+                if (shell != null) shell.QuitToMenu();
             }));
 
             BuildPromotionPicker(root);
@@ -206,7 +210,7 @@ namespace LightningForge.Arcade.Game.Chess
 
             Button menuButton = MakeControl("Back to Menu", () =>
             {
-                if (titleScreen != null) titleScreen.QuitToMenu();
+                if (shell != null) shell.QuitToMenu();
             });
             menuButton.style.width = 210f;
             box.Add(menuButton);
@@ -401,7 +405,7 @@ namespace LightningForge.Arcade.Game.Chess
 
             // Restarting only one side of an online match would desync it, so that route
             // is left to leaving the match.
-            bool online = titleScreen != null && titleScreen.Mode == GameMode.Online;
+            bool online = shell != null && shell.Mode == GameMode.Online;
             if (playAgainButton != null)
             {
                 playAgainButton.style.display = online ? DisplayStyle.None : DisplayStyle.Flex;
@@ -446,7 +450,7 @@ namespace LightningForge.Arcade.Game.Chess
             element.style.borderRightColor = color;
         }
 
-        /// <summary>Hides the whole in-game HUD, used while the title screen is up.</summary>
+        /// <summary>Hides the whole in-game HUD, used while the arcade grid is up.</summary>
         public void SetVisible(bool visible)
         {
             if (document == null) document = GetComponent<UIDocument>();

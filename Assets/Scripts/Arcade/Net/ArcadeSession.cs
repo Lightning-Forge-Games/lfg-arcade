@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using Fusion;
+using LightningForge.Arcade.Game;
 using UnityEngine;
 
 namespace LightningForge.Arcade.Net
@@ -15,12 +16,15 @@ namespace LightningForge.Arcade.Net
     /// to be authoritative: the rules run identically on both clients, so Photon only has
     /// to keep the two of them in the same room.
     /// </summary>
-    public class ChessSession : MonoBehaviour
+    public class ArcadeSession : MonoBehaviour
     {
         [SerializeField] NetworkObject linkPrefab;
 
         [Tooltip("Query string key used to carry the match code in a shared link.")]
         [SerializeField] string urlParameter = "match";
+
+        [Tooltip("Query string key naming which game the invite is for.")]
+        [SerializeField] string gameParameter = "game";
 
         NetworkRunner runner;
         Task shuttingDown;
@@ -32,8 +36,18 @@ namespace LightningForge.Arcade.Net
 
         public event Action Changed;
 
+        /// <summary>
+        /// Which game this match is for. Carried in the invite link so that following one
+        /// lands the guest in the same game as the host, not just the same room.
+        /// </summary>
+        public ArcadeGameId Game { get; set; } = ArcadeGameId.Chess;
+
         /// <summary>The code carried in the page URL, if this client opened an invite link.</summary>
-        public string CodeFromUrl => ReadCodeFromUrl(urlParameter);
+        public string CodeFromUrl => ReadParameter(urlParameter).ToUpperInvariant();
+
+        /// <summary>The game named in the page URL, if this client opened an invite link.</summary>
+        public bool TryGetGameFromUrl(out ArcadeGameId id) =>
+            ArcadeCatalog.TryParse(ReadParameter(gameParameter), out id);
 
         /// <summary>Full invite URL for the current match, or empty when not in one.</summary>
         public string InviteUrl
@@ -43,7 +57,8 @@ namespace LightningForge.Arcade.Net
                 if (string.IsNullOrEmpty(MatchCode)) return string.Empty;
                 string baseUrl = StripQuery(Application.absoluteURL);
                 if (string.IsNullOrEmpty(baseUrl)) return MatchCode;
-                return baseUrl + "?" + urlParameter + "=" + MatchCode;
+                return baseUrl + "?" + gameParameter + "=" + ArcadeCatalog.ToSlug(Game)
+                     + "&" + urlParameter + "=" + MatchCode;
             }
         }
 
@@ -103,7 +118,7 @@ namespace LightningForge.Arcade.Net
                     // no way back into a match, so the runner gets one of its own. It is left
                     // at the root because Fusion marks it DontDestroyOnLoad, which only
                     // applies to root objects.
-                    runner = new GameObject("Chess Network Runner").AddComponent<NetworkRunner>();
+                    runner = new GameObject("Arcade Network Runner").AddComponent<NetworkRunner>();
                 }
                 runner.ProvideInput = false;
 
@@ -111,7 +126,7 @@ namespace LightningForge.Arcade.Net
                 // loaded scene, and letting Fusion manage scenes would reload and rebuild it.
                 var args = new StartGameArgs
                 {
-                    GameMode = GameMode.Shared,
+                    GameMode = Fusion.GameMode.Shared,
                     SessionName = code,
                     PlayerCount = 2
                 };
@@ -171,10 +186,10 @@ namespace LightningForge.Arcade.Net
         }
 
         /// <summary>
-        /// Reads ?match=CODE from the page URL. Returns empty off the web, where
+        /// Reads one query parameter from the page URL. Returns empty off the web, where
         /// absoluteURL is a file path with no query string.
         /// </summary>
-        static string ReadCodeFromUrl(string key)
+        static string ReadParameter(string key)
         {
             string url = Application.absoluteURL;
             if (string.IsNullOrEmpty(url)) return string.Empty;
@@ -190,8 +205,7 @@ namespace LightningForge.Arcade.Net
                 if (eq <= 0) continue;
                 if (!string.Equals(pair.Substring(0, eq), key, StringComparison.OrdinalIgnoreCase)) continue;
 
-                string value = pair.Substring(eq + 1);
-                return Uri.UnescapeDataString(value).ToUpperInvariant();
+                return Uri.UnescapeDataString(pair.Substring(eq + 1));
             }
             return string.Empty;
         }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Reflection;
+using LightningForge.Arcade.Core;
 using LightningForge.Arcade.Core.Chess;
 using LightningForge.Arcade.Game;
 using LightningForge.Arcade.Game.Chess;
@@ -12,11 +13,11 @@ using UnityEngine.TestTools;
 namespace LightningForge.Arcade.Tests.PlayMode
 {
     /// <summary>
-    /// Exercises the online lobby against the real Photon backend.
+    /// Exercises the arcade's online layer against the real Photon backend.
     ///
-    /// The networking scripts live in Assembly-CSharp, which an asmdef cannot reference,
-    /// so they are reached by reflection. That is the cost of the Fusion weaver needing
-    /// them there; see the notes on ChessNetLink.
+    /// The networking scripts live in Assembly-CSharp, which an asmdef cannot reference, so
+    /// they are reached by reflection. That is the price of the Fusion weaver needing them
+    /// there; see the note on ArcadeNetLink.
     ///
     /// The connecting test is in the Network category because it needs an internet
     /// connection and spends Photon CCU. Exclude the category to skip it.
@@ -27,9 +28,9 @@ namespace LightningForge.Arcade.Tests.PlayMode
         const float SpawnTimeout = 10f;
 
         static readonly Type SessionType =
-            Type.GetType("LightningForge.Arcade.Net.ChessSession, Assembly-CSharp");
+            Type.GetType("LightningForge.Arcade.Net.ArcadeSession, Assembly-CSharp");
         static readonly Type LinkType =
-            Type.GetType("LightningForge.Arcade.Net.ChessNetLink, Assembly-CSharp");
+            Type.GetType("LightningForge.Arcade.Net.ArcadeNetLink, Assembly-CSharp");
 
         MonoBehaviour session;
 
@@ -39,7 +40,6 @@ namespace LightningForge.Arcade.Tests.PlayMode
         static void Call(object target, string method, params object[] args) =>
             target.GetType().GetMethod(method).Invoke(target, args);
 
-        /// <summary>Polls until the condition holds, or fails the test on timeout.</summary>
         static IEnumerator WaitUntil(Func<bool> condition, float seconds, string what)
         {
             float deadline = Time.realtimeSinceStartup + seconds;
@@ -54,6 +54,7 @@ namespace LightningForge.Arcade.Tests.PlayMode
         public IEnumerator TearDown()
         {
             LogAssert.ignoreFailingMessages = false;
+
             if (session != null && (bool)Get(session, "IsConnected"))
             {
                 Call(session, "Leave");
@@ -68,8 +69,8 @@ namespace LightningForge.Arcade.Tests.PlayMode
             // The weaver only reaches RPCs in Assembly-CSharp. If these ever move to their
             // own asmdef, RpcPlayMove throws FieldAccessException on the first call, at
             // runtime, in a real match. Fail here instead.
-            Assert.IsNotNull(SessionType, "ChessSession is not in Assembly-CSharp");
-            Assert.IsNotNull(LinkType, "ChessNetLink is not in Assembly-CSharp");
+            Assert.IsNotNull(SessionType, "ArcadeSession is not in Assembly-CSharp");
+            Assert.IsNotNull(LinkType, "ArcadeNetLink is not in Assembly-CSharp");
         }
 
         [Test]
@@ -91,19 +92,46 @@ namespace LightningForge.Arcade.Tests.PlayMode
             }
         }
 
+        [Test]
+        public void EveryCatalogEntryRoundTripsThroughItsInviteSlug()
+        {
+            // The slug is what an invite link carries, so a game whose name does not parse
+            // back would send the guest into the wrong game, or into the menu.
+            foreach (ArcadeGameInfo info in ArcadeCatalog.Games)
+            {
+                string slug = ArcadeCatalog.ToSlug(info.Id);
+                Assert.IsTrue(ArcadeCatalog.TryParse(slug, out ArcadeGameId parsed),
+                    slug + " does not parse back");
+                Assert.AreEqual(info.Id, parsed, "slug " + slug + " resolved to the wrong game");
+                Assert.IsNotNull(ArcadeCatalog.Get(info.Id), info.Id + " is not retrievable");
+            }
+        }
+
         [UnityTest, Category("Network")]
         public IEnumerator HostingAMatchConnectsAndSpawnsTheLink()
         {
-            SceneManager.LoadScene("Chess", LoadSceneMode.Single);
+            SceneManager.LoadScene("Arcade", LoadSceneMode.Single);
             yield return null;
             yield return null;
+
+            var shell = UnityEngine.Object.FindFirstObjectByType<ArcadeShell>();
+            Assert.IsNotNull(shell, "no ArcadeShell in the Arcade scene");
 
             session = (MonoBehaviour)UnityEngine.Object.FindFirstObjectByType(SessionType);
-            Assert.IsNotNull(session, "no ChessSession in the Chess scene");
+            Assert.IsNotNull(session, "no ArcadeSession in the Arcade scene");
+
+            // Games sit inactive until chosen, so start one the way an invite link does.
+            shell.SkipToOnline(ArcadeGameId.Chess);
+            yield return null;
+
+            ArcadeGame game = shell.Current;
+            Assert.IsNotNull(game, "the shell did not start a game");
+            Assert.AreEqual(ArcadeGameId.Chess, game.Id);
 
             var controller = UnityEngine.Object.FindFirstObjectByType<ChessGameController>();
-            Assert.IsNotNull(controller, "no ChessGameController in the Chess scene");
-            Assert.AreEqual(ControlMode.Both, controller.Control, "should start in hot seat");
+            Assert.IsNotNull(controller, "chess did not activate");
+            Assert.AreEqual(ControlMode.Both, controller.Control,
+                "online should start with both seats until the match assigns one");
 
             Call(session, "CreateMatch");
 
@@ -120,26 +148,24 @@ namespace LightningForge.Arcade.Tests.PlayMode
 
             // The link is spawned by the master client and arrives a few frames later.
             yield return WaitUntil(() => UnityEngine.Object.FindFirstObjectByType(LinkType) != null,
-                SpawnTimeout, "ChessNetLink to spawn");
+                SpawnTimeout, "ArcadeNetLink to spawn");
 
             object link = UnityEngine.Object.FindFirstObjectByType(LinkType);
-            Assert.IsTrue((bool)Get(link, "IsWhite"), "the host should play White");
+            Assert.IsTrue((bool)Get(link, "IsFirstSeat"), "the host should take the first seat");
             Assert.AreEqual(ControlMode.WhiteOnly, controller.Control,
-                "the host should only be able to move White");
+                "the host should have been narrowed to White");
 
             var rig = UnityEngine.Object.FindFirstObjectByType<BoardCameraRig>();
             if (rig != null) Assert.AreEqual(PieceColor.White, rig.Viewpoint, "camera side");
 
-            // Playing a move drives MoveMade into RpcPlayMove. A weaving problem shows up
-            // as a FieldAccessException on the very first RPC and nowhere earlier, so make
-            // a move rather than trusting that the connection alone proves anything. The
-            // RPC targets all peers including this one, which drops it on arrival because
-            // the sender already played it, so the board must be left holding exactly the
-            // one move.
+            // Playing a move drives the game's MovePlayed event into the RPC. A weaving
+            // problem shows up as a FieldAccessException on the very first RPC and nowhere
+            // earlier, so make a move rather than trusting the connection alone. The RPC
+            // targets every peer including this one, which drops it on arrival because the
+            // sender already played it, so the board must hold exactly the one move.
             Assert.IsTrue(controller.TryPlayUci("e2e4"), "e2e4 should be legal from the start");
             yield return null;
             yield return null;
-
             Assert.AreEqual(PieceColor.Black, controller.Board.SideToMove,
                 "the local move should have been applied once, not echoed back");
 
@@ -161,14 +187,14 @@ namespace LightningForge.Arcade.Tests.PlayMode
             // Fusion destroys the runner's GameObject on shutdown. If the runner shares an
             // object with the lobby, leaving one match takes the whole lobby with it and
             // there is no way into a second one.
-            Assert.IsFalse(session == null, "leaving destroyed the ChessSession");
+            Assert.IsFalse(session == null, "leaving destroyed the ArcadeSession");
             Assert.IsFalse(UnityEngine.Object.FindFirstObjectByType(
-                Type.GetType("LightningForge.Arcade.Net.ChessOnlineHud, Assembly-CSharp")) == null,
+                    Type.GetType("LightningForge.Arcade.Net.ArcadeOnlineHud, Assembly-CSharp")) == null,
                 "leaving destroyed the lobby UI");
 
-            // And a second match must still be reachable, immediately, with no pause to
-            // let the old connection finish. Hosting again while the previous runner is
-            // still shutting down is exactly what a player does after pressing Leave.
+            // And a second match must still be reachable immediately, with no pause to let
+            // the old connection finish. Hosting again the moment Leave returns is exactly
+            // what a player does.
             Call(session, "CreateMatch");
             yield return WaitUntil(() => !(bool)Get(session, "IsConnecting"),
                 ConnectTimeout, "the second connect to settle");

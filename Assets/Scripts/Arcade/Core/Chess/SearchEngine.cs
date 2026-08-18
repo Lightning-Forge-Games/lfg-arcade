@@ -3,14 +3,6 @@ using System.Collections.Generic;
 
 namespace LightningForge.Arcade.Core.Chess
 {
-    /// <summary>How strong the computer opponent plays.</summary>
-    public enum Difficulty
-    {
-        Easy,
-        Medium,
-        Hard
-    }
-
     /// <summary>
     /// Negamax search with alpha-beta pruning.
     ///

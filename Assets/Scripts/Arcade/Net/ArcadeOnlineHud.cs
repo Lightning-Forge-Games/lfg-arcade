@@ -12,10 +12,10 @@ namespace LightningForge.Arcade.Net
     /// not depend on networking. This draws into its own UIDocument layered on top.
     /// </summary>
     [RequireComponent(typeof(UIDocument))]
-    public class ChessOnlineHud : MonoBehaviour
+    public class ArcadeOnlineHud : MonoBehaviour
     {
-        [SerializeField] ChessSession session;
-        [SerializeField] TitleScreen titleScreen;
+        [SerializeField] ArcadeSession session;
+        [SerializeField] ArcadeShell shell;
 
         UIDocument document;
         VisualElement panel;
@@ -29,18 +29,18 @@ namespace LightningForge.Arcade.Net
         void Awake()
         {
             document = GetComponent<UIDocument>();
-            if (session == null) session = GetComponent<ChessSession>();
-            if (titleScreen == null) titleScreen = FindFirstObjectByType<TitleScreen>();
+            if (session == null) session = GetComponent<ArcadeSession>();
+            if (shell == null) shell = FindFirstObjectByType<ArcadeShell>();
         }
 
         void OnEnable()
         {
             Build();
             if (session != null) session.Changed += Refresh;
-            if (titleScreen != null)
+            if (shell != null)
             {
-                titleScreen.ModeChosen += OnModeChosen;
-                titleScreen.Quit += OnQuit;
+                shell.ModeChosen += OnModeChosen;
+                shell.Quit += OnQuit;
             }
             Refresh();
         }
@@ -49,7 +49,7 @@ namespace LightningForge.Arcade.Net
         /// An invite link should land the player in that match without making them pick a
         /// mode first.
         ///
-        /// This waits for Start rather than acting in OnEnable. TitleScreen shows itself
+        /// This waits for Start rather than acting in OnEnable. The arcade shell shows itself
         /// from its own OnEnable, and if that runs second it puts the menu straight back
         /// over a match that is already being joined. The player then has to press Play
         /// Online, which restarts the game underneath the live connection.
@@ -61,7 +61,11 @@ namespace LightningForge.Arcade.Net
             string code = session.CodeFromUrl;
             if (string.IsNullOrEmpty(code)) return;
 
-            if (titleScreen != null) titleScreen.SkipToOnline();
+            // Links made before the arcade existed carry no game, and those were all chess.
+            if (!session.TryGetGameFromUrl(out ArcadeGameId id)) id = ArcadeGameId.Chess;
+
+            session.Game = id;
+            if (shell != null) shell.SkipToOnline(id);
             session.JoinMatch(code);
             Refresh();
         }
@@ -69,10 +73,10 @@ namespace LightningForge.Arcade.Net
         void OnDisable()
         {
             if (session != null) session.Changed -= Refresh;
-            if (titleScreen != null)
+            if (shell != null)
             {
-                titleScreen.ModeChosen -= OnModeChosen;
-                titleScreen.Quit -= OnQuit;
+                shell.ModeChosen -= OnModeChosen;
+                shell.Quit -= OnQuit;
             }
         }
 
@@ -86,7 +90,7 @@ namespace LightningForge.Arcade.Net
 
         /// <summary>The lobby is only meaningful once online play has been chosen.</summary>
         bool ShouldShow =>
-            titleScreen == null || titleScreen.Mode == GameMode.Online;
+            shell == null || shell.Mode == GameMode.Online;
 
         void Build()
         {
@@ -116,7 +120,12 @@ namespace LightningForge.Arcade.Net
             statusLabel.style.marginBottom = 8f;
             panel.Add(statusLabel);
 
-            hostButton = new Button(() => { if (session != null) session.CreateMatch(); });
+            hostButton = new Button(() =>
+            {
+                if (session == null) return;
+                if (shell != null) session.Game = shell.CurrentGame;
+                session.CreateMatch();
+            });
             hostButton.text = "Play Online";
             Style(hostButton);
             panel.Add(hostButton);
@@ -132,7 +141,12 @@ namespace LightningForge.Arcade.Net
             joinField.value = string.Empty;
             joinRow.Add(joinField);
 
-            joinButton = new Button(() => { if (session != null) session.JoinMatch(joinField.value); });
+            joinButton = new Button(() =>
+            {
+                if (session == null) return;
+                if (shell != null) session.Game = shell.CurrentGame;
+                session.JoinMatch(joinField.value);
+            });
             joinButton.text = "Join";
             Style(joinButton);
             joinButton.style.marginTop = 0f;
@@ -199,8 +213,13 @@ namespace LightningForge.Arcade.Net
             }
             else if (connected)
             {
-                ChessNetLink link = FindFirstObjectByType<ChessNetLink>();
-                string side = link == null ? "waiting for opponent" : "you are " + (link.IsWhite ? "White" : "Black");
+                ArcadeNetLink link = FindFirstObjectByType<ArcadeNetLink>();
+                ArcadeGameInfo info = ArcadeCatalog.Get(session.Game);
+                string side = link == null
+                    ? "waiting for opponent"
+                    : "you are " + (info == null
+                        ? (link.IsFirstSeat ? "White" : "Black")
+                        : (link.IsFirstSeat ? info.FirstSeat : info.SecondSeat));
                 statusLabel.text = "Match " + session.MatchCode + " (" + side + ")";
             }
             else if (!string.IsNullOrEmpty(session.LastError))
