@@ -54,6 +54,13 @@ namespace LightningForge.Chess.Game
         public float SquareSurfaceHeight => squareThickness * 0.5f;
 
         /// <summary>
+        /// Local height of the underside of the plinth, which is the ground the board
+        /// rests on. Anything placed beside the board should stand here, not at board
+        /// height, or it floats with nothing under it.
+        /// </summary>
+        public float GroundHeight => -(squareThickness * 0.5f + plinthThickness);
+
+        /// <summary>
         /// Distance from the board centre to the middle of the frame band. Mirrors how the
         /// rails are positioned in <see cref="BuildFrame"/>, so anything placed here sits
         /// centred on the border rather than guessing an offset.

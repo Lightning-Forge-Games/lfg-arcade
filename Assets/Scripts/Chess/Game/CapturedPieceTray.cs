@@ -98,7 +98,9 @@ namespace LightningForge.Chess.Game
                               + gap + column * columnSpacing);
             float z = (row - (piecesPerColumn - 1) * 0.5f) * rowSpacing;
 
-            Vector3 local = new Vector3(x, boardView.SquareSurfaceHeight, z);
+            // Beside the board there is no playing surface, so they stand on the ground
+            // the board itself rests on. Board height would leave them hanging in the air.
+            Vector3 local = new Vector3(x, boardView.GroundHeight, z);
             view.transform.position = boardView.transform.TransformPoint(local);
         }
     }
