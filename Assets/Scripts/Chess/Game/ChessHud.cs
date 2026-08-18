@@ -18,8 +18,10 @@ namespace LightningForge.Chess.Game
         [SerializeField] ChessGameController controller;
         [SerializeField] TitleScreen titleScreen;
         [SerializeField] BoardCameraRig cameraRig;
+        [SerializeField] PieceViewFactory pieceFactory;
 
         Button viewButton;
+        Button pieceButton;
 
         UIDocument document;
         Label statusLabel;
@@ -34,6 +36,7 @@ namespace LightningForge.Chess.Game
             if (controller == null) controller = FindFirstObjectByType<ChessGameController>();
             if (titleScreen == null) titleScreen = FindFirstObjectByType<TitleScreen>();
             if (cameraRig == null) cameraRig = FindFirstObjectByType<BoardCameraRig>();
+            if (pieceFactory == null) pieceFactory = FindFirstObjectByType<PieceViewFactory>();
         }
 
         void OnEnable()
@@ -119,6 +122,19 @@ namespace LightningForge.Chess.Game
                 RefreshViewButton();
             });
             controls.Add(viewButton);
+
+            pieceButton = MakeControl("Pieces: 3D", () =>
+            {
+                if (pieceFactory != null && controller != null)
+                {
+                    pieceFactory.Style = pieceFactory.Style == PieceStyle.Sculpted
+                        ? PieceStyle.Token
+                        : PieceStyle.Sculpted;
+                    controller.RefreshPieceViews();
+                }
+                RefreshPieceButton();
+            });
+            controls.Add(pieceButton);
 
             controls.Add(MakeControl("New Game", () => { if (controller != null) controller.NewGame(); Refresh(); }));
 
@@ -305,6 +321,13 @@ namespace LightningForge.Chess.Game
             viewButton.text = current == BoardViewStyle.Angled ? "View: Angled" : "View: Overhead";
         }
 
+        void RefreshPieceButton()
+        {
+            if (pieceButton == null) return;
+            PieceStyle current = pieceFactory != null ? pieceFactory.Style : PieceStyle.Sculpted;
+            pieceButton.text = current == PieceStyle.Sculpted ? "Pieces: 3D" : "Pieces: Tokens";
+        }
+
         static void SetBorderRadius(VisualElement element, float radius)
         {
             element.style.borderTopLeftRadius = radius;
@@ -383,6 +406,7 @@ namespace LightningForge.Chess.Game
 
             RefreshMoveList();
             RefreshViewButton();
+            RefreshPieceButton();
         }
     }
 }

@@ -338,6 +338,26 @@ MonoBehaviour:
   - Type: 6
     WhitePrefab: {fileID: 1842562220575393888, guid: f54b1a77bc382ea4291378cf5b909496, type: 3}
     BlackPrefab: {fileID: 4511616875158813433, guid: e5b427041af30664799fbf6d26bec822, type: 3}
+  tokenPrefabs:
+  - Type: 1
+    WhitePrefab: {fileID: 8746727098430068600, guid: 601ffaf7503d09d4ab1a3ebd321d0a0d, type: 3}
+    BlackPrefab: {fileID: 4221534040266244660, guid: 31d4b5da6d8c8204abb66712bcb92e5e, type: 3}
+  - Type: 2
+    WhitePrefab: {fileID: 8057732153374810790, guid: 821d508cc55b22b4e8634dc46b833fe2, type: 3}
+    BlackPrefab: {fileID: 1250912091599332799, guid: f17905aaade3d9e43bd4e185b0227736, type: 3}
+  - Type: 3
+    WhitePrefab: {fileID: 362990836733453973, guid: c7f82adbda422a24183232f5dd66315f, type: 3}
+    BlackPrefab: {fileID: 789116527949980250, guid: 3040519f62c83c4498aa884eed93bc15, type: 3}
+  - Type: 4
+    WhitePrefab: {fileID: 293214801746825595, guid: a96b4135a8b46124a9a0e18af84bed6f, type: 3}
+    BlackPrefab: {fileID: 211924999686425660, guid: 057325709f18a864ca39ae81d101f199, type: 3}
+  - Type: 5
+    WhitePrefab: {fileID: 4092055509629570224, guid: 67259f4880e903e40919b8661be17cdf, type: 3}
+    BlackPrefab: {fileID: 3873351199246633252, guid: c3a27530c022e6c48ad53bc47fbd3b04, type: 3}
+  - Type: 6
+    WhitePrefab: {fileID: 2773073807956398729, guid: b05698caa8c4ace43bcb5d62135158c2, type: 3}
+    BlackPrefab: {fileID: 8886490926459915645, guid: c1a92a0eeb76ac5409807fbeeff58cc0, type: 3}
+  style: 0
   whiteMaterial: {fileID: 2100000, guid: 3a66d1b1c22685b44abafc094a4d7b3a, type: 2}
   blackMaterial: {fileID: 2100000, guid: 9f4063de2d78bfa49aa64c9d2841a490, type: 2}
   pawnHeight: 0.5
@@ -851,6 +871,7 @@ MonoBehaviour:
   controller: {fileID: 653221815}
   titleScreen: {fileID: 2067275725}
   cameraRig: {fileID: 1752491944}
+  pieceFactory: {fileID: 653221816}
 --- !u!114 &1686781884
 MonoBehaviour:
   m_ObjectHideFlags: 0

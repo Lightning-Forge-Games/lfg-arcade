@@ -88,6 +88,16 @@ namespace LightningForge.Chess.Game
         public IReadOnlyList<string> MoveHistory => moveHistory;
 
         /// <summary>
+        /// Respawns every piece view from the current board, without touching the game.
+        /// Used when the piece style changes.
+        /// </summary>
+        public void RefreshPieceViews()
+        {
+            EnsureInitialised();
+            RebuildPieceViews();
+        }
+
+        /// <summary>
         /// Incremented by every <see cref="NewGame"/>. Anything that thinks across frames
         /// should capture this and abandon its work if it changes, or it will act on a
         /// position that no longer exists.

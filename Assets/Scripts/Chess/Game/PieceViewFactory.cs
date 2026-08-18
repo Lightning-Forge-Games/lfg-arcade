@@ -21,6 +21,18 @@ namespace LightningForge.Chess.Game
     {
         [SerializeField] PiecePrefabEntry[] prefabs = new PiecePrefabEntry[0];
 
+        [Tooltip("Flat token set, used when the style is Token.")]
+        [SerializeField] PiecePrefabEntry[] tokenPrefabs = new PiecePrefabEntry[0];
+
+        [SerializeField] PieceStyle style = PieceStyle.Sculpted;
+
+        /// <summary>Which set is drawn. Existing views are not affected; rebuild to apply.</summary>
+        public PieceStyle Style
+        {
+            get => style;
+            set => style = value;
+        }
+
         [Header("Stand-in appearance")]
         [SerializeField] Material whiteMaterial;
         [SerializeField] Material blackMaterial;
@@ -50,10 +62,24 @@ namespace LightningForge.Chess.Game
 
         GameObject FindPrefab(PieceType type, PieceColor color)
         {
-            foreach (PiecePrefabEntry entry in prefabs)
+            PiecePrefabEntry[] set = style == PieceStyle.Token ? tokenPrefabs : prefabs;
+
+            foreach (PiecePrefabEntry entry in set)
             {
                 if (entry.Type != type) continue;
-                return color == PieceColor.White ? entry.WhitePrefab : entry.BlackPrefab;
+                GameObject prefab = color == PieceColor.White ? entry.WhitePrefab : entry.BlackPrefab;
+                if (prefab != null) return prefab;
+            }
+
+            // Fall back to the sculpted set rather than dropping to primitives if the
+            // token set has not been generated yet.
+            if (style == PieceStyle.Token)
+            {
+                foreach (PiecePrefabEntry entry in prefabs)
+                {
+                    if (entry.Type != type) continue;
+                    return color == PieceColor.White ? entry.WhitePrefab : entry.BlackPrefab;
+                }
             }
             return null;
         }
