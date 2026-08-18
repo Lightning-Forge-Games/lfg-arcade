@@ -111,12 +111,10 @@ namespace LightningForge.Arcade.Game
 
                 if (squarePrefab == null)
                 {
-                    // A softened edge on every square is what stops a procedural board
-                    // reading as sixty four flat tiles.
-                    go.transform.localScale = Vector3.one;
-                    var size = new Vector3(squareSize, squareThickness, squareSize);
-                    ArcadeMeshes.ApplyMesh(go, ArcadeMeshes.RoundedBox(size, squareThickness * 0.11f, 4));
-                    go.GetComponent<BoxCollider>().size = size;
+                    // Square edges on purpose. A bevel here separates the squares into
+                    // sixty four loose tiles instead of one board, which is the opposite of
+                    // what it does for a die or a rail.
+                    go.transform.localScale = new Vector3(squareSize, squareThickness, squareSize);
                 }
 
                 var renderer = go.GetComponentInChildren<Renderer>();

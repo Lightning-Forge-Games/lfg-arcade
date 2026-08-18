@@ -60,6 +60,7 @@ namespace LightningForge.Arcade.Game.Yahtzee
         Coroutine rolling;
         UIDocument document;
         AudioSource rattleSource;
+        AudioSource impactSource;
 
         /// <summary>The dice waiting in the cup, loaded when a roll begins.</summary>
         readonly List<YahtzeeDie> loaded = new List<YahtzeeDie>();
@@ -159,12 +160,12 @@ namespace LightningForge.Arcade.Game.Yahtzee
         {
             StopWork();
             if (cameraRig != null) cameraRig.ClearFramingOverride();
+            DestroyDice();
             if (root != null)
             {
                 Destroy(root.gameObject);
                 root = null;
             }
-            dieViews.Clear();
             if (document != null && document.rootVisualElement != null) document.rootVisualElement.Clear();
         }
 
@@ -684,6 +685,7 @@ namespace LightningForge.Arcade.Game.Yahtzee
 
         void BuildTable()
         {
+            DestroyDice();
             if (root != null) Destroy(root.gameObject);
 
             var go = new GameObject("Yahtzee Table");
@@ -724,12 +726,15 @@ namespace LightningForge.Arcade.Game.Yahtzee
             AddContainment("Contain_Near", centre + new Vector3(0f, containment * 0.4f, -halfD - 0.12f),
                 new Vector3(TrayWidth, containment, 0.24f));
 
+            impactSource = ArcadeAudio.AddSource(go, ArcadeAudio.Knock(), false);
+            impactSource.volume = 1f;
+
             BuildCup();
 
-            dieViews.Clear();
             for (int i = 0; i < DiceCount; i++)
             {
                 YahtzeeDie die = YahtzeeDie.Create(root, DieColour, PipColour, HeldColour);
+                die.Struck += OnDieStruck;
                 die.Park(DieRestPosition(i));
                 dieViews.Add(die);
             }
@@ -773,6 +778,32 @@ namespace LightningForge.Arcade.Game.Yahtzee
             go.transform.SetParent(root, false);
             go.transform.localPosition = localPosition;
             go.AddComponent<BoxCollider>().size = size;
+        }
+
+        /// <summary>
+        /// Clears the dice out by hand rather than relying on the table taking them with
+        /// it. A thrown die is reparented, and anything that has left the table root is
+        /// invisible to destroying the table.
+        /// </summary>
+        void DestroyDice()
+        {
+            foreach (YahtzeeDie die in dieViews)
+            {
+                if (die == null) continue;
+                die.Struck -= OnDieStruck;
+                Destroy(die.gameObject);
+            }
+            dieViews.Clear();
+            loaded.Clear();
+        }
+
+        /// <summary>A die landing. Louder for a harder knock, so a clatter reads as one.</summary>
+        void OnDieStruck(float force)
+        {
+            if (impactSource == null) return;
+
+            impactSource.pitch = Random.Range(0.86f, 1.18f);
+            impactSource.PlayOneShot(impactSource.clip, Mathf.Clamp01(force / 5f) * 0.55f);
         }
 
         void AddBox(string name, Vector3 localPosition, Vector3 scale, Color colour,

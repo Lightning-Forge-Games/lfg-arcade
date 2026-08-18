@@ -16,8 +16,21 @@ namespace LightningForge.Arcade.Game.Yahtzee
         /// <summary>Edge length. Deliberately small: the tray wants room to scatter.</summary>
         public const float Size = 0.34f;
 
+        /// <summary>
+        /// Where the die belongs when it is not in the cup.
+        ///
+        /// A thrown die used to be parented to nothing, which made it a root object that
+        /// survived the table being torn down. Every new game left its dice behind and the
+        /// tray filled up with the last game's roll.
+        /// </summary>
+        public Transform Home { get; set; }
+
+        /// <summary>Raised when the die strikes something hard enough to hear.</summary>
+        public event System.Action<float> Struck;
+
         Rigidbody body;
         MeshRenderer shell;
+        float lastImpact;
         Color faceColour;
         Color heldColour;
 
@@ -42,6 +55,7 @@ namespace LightningForge.Arcade.Game.Yahtzee
             ArcadeMeshes.ApplyMesh(go, ArcadeMeshes.RoundedBox(Vector3.one, 0.13f, 6));
 
             var die = go.AddComponent<YahtzeeDie>();
+            die.Home = parent;
             die.shell = go.GetComponent<MeshRenderer>();
             die.faceColour = face;
             die.heldColour = held;
@@ -83,7 +97,8 @@ namespace LightningForge.Arcade.Game.Yahtzee
         /// <summary>Throws the die from a point, with enough spin to tumble properly.</summary>
         public void Throw(Vector3 from, Vector3 velocity)
         {
-            transform.SetParent(null, true);
+            Reveal();
+            transform.SetParent(Home, true);
             body.isKinematic = false;
             transform.position = from;
             transform.rotation = UnityEngine.Random.rotation;
@@ -106,6 +121,29 @@ namespace LightningForge.Arcade.Game.Yahtzee
             transform.SetParent(cup, false);
             transform.localPosition = localPosition;
             transform.localRotation = Random.rotation;
+
+            // Hidden rather than merely inside. A cup wide enough to hold five dice without
+            // any of them poking through its wall would be a bucket, and nobody can see
+            // into it anyway, so the honest thing is to take them off screen until they
+            // pour out.
+            shell.enabled = false;
+            SetPipsVisible(false);
+        }
+
+        void SetPipsVisible(bool visible)
+        {
+            Transform pips = transform.Find("Pips");
+            if (pips == null) return;
+            foreach (MeshRenderer pip in pips.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                pip.enabled = visible;
+            }
+        }
+
+        void Reveal()
+        {
+            shell.enabled = true;
+            SetPipsVisible(true);
         }
 
         public void Halt()
@@ -121,11 +159,29 @@ namespace LightningForge.Arcade.Game.Yahtzee
         public void Park(Vector3 position)
         {
             int showing = Value;
-            transform.SetParent(null, true);
+            Reveal();
+            transform.SetParent(Home, true);
             body.isKinematic = true;
             Halt();
             transform.position = position;
             transform.rotation = PippedDie.RotationShowing(showing);
+        }
+
+        /// <summary>
+        /// Reports a landing worth hearing. Thresholded and rate limited, because a die
+        /// settling generates a stream of tiny contacts and playing a knock for each turns
+        /// one landing into a machine gun.
+        /// </summary>
+        void OnCollisionEnter(Collision collision)
+        {
+            if (body.isKinematic) return;
+
+            float force = collision.relativeVelocity.magnitude;
+            if (force < 0.7f) return;
+            if (Time.time - lastImpact < 0.05f) return;
+
+            lastImpact = Time.time;
+            Struck?.Invoke(force);
         }
 
         public void SetHeld(bool held)
