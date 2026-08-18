@@ -1,3 +1,4 @@
+using LightningForge.Chess.Game;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -13,6 +14,7 @@ namespace LightningForge.Chess.Net
     public class ChessOnlineHud : MonoBehaviour
     {
         [SerializeField] ChessSession session;
+        [SerializeField] TitleScreen titleScreen;
 
         UIDocument document;
         VisualElement panel;
@@ -27,26 +29,40 @@ namespace LightningForge.Chess.Net
         {
             document = GetComponent<UIDocument>();
             if (session == null) session = GetComponent<ChessSession>();
+            if (titleScreen == null) titleScreen = FindFirstObjectByType<TitleScreen>();
         }
 
         void OnEnable()
         {
             Build();
             if (session != null) session.Changed += Refresh;
+            if (titleScreen != null) titleScreen.ModeChosen += OnModeChosen;
             Refresh();
 
-            // Opening an invite link should drop you straight into that match.
+            // An invite link should land the player in that match without making them
+            // pick a mode first.
             if (session != null)
             {
                 string code = session.CodeFromUrl;
-                if (!string.IsNullOrEmpty(code)) session.JoinMatch(code);
+                if (!string.IsNullOrEmpty(code))
+                {
+                    if (titleScreen != null) titleScreen.SkipToOnline();
+                    session.JoinMatch(code);
+                }
             }
         }
 
         void OnDisable()
         {
             if (session != null) session.Changed -= Refresh;
+            if (titleScreen != null) titleScreen.ModeChosen -= OnModeChosen;
         }
+
+        void OnModeChosen(GameMode mode) => Refresh();
+
+        /// <summary>The lobby is only meaningful once online play has been chosen.</summary>
+        bool ShouldShow =>
+            titleScreen == null || titleScreen.Mode == GameMode.Online;
 
         void Build()
         {
@@ -146,6 +162,9 @@ namespace LightningForge.Chess.Net
         public void Refresh()
         {
             if (session == null || statusLabel == null) return;
+
+            if (panel != null) panel.style.display = ShouldShow ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!ShouldShow) return;
 
             bool connected = session.IsConnected && !string.IsNullOrEmpty(session.MatchCode);
 

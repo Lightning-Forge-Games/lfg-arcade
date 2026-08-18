@@ -93,6 +93,10 @@ namespace LightningForge.Chess.Game
 
         IEnumerator Think()
         {
+            // If the game is restarted while we wait, this whole line of thought is about
+            // a position that no longer exists and must be dropped.
+            int gameId = controller.GameId;
+
             // Let the human's move finish animating before the reply lands.
             float wait = Mathf.Max(thinkingDelay, 0f);
             float elapsed = 0f;
@@ -102,8 +106,10 @@ namespace LightningForge.Chess.Game
                 yield return null;
             }
 
-            // Re-check: the game may have ended or the turn changed while waiting.
-            if (controller.Board.SideToMove != side || GameStatusEvaluator.IsGameOver(controller.Status))
+            // Re-check: the game may have been reset, ended, or the turn changed.
+            if (controller.GameId != gameId
+                || controller.Board.SideToMove != side
+                || GameStatusEvaluator.IsGameOver(controller.Status))
             {
                 thinking = null;
                 yield break;

@@ -290,6 +290,14 @@ namespace LightningForge.Chess.Game
             element.style.borderRightColor = color;
         }
 
+        /// <summary>Hides the whole in-game HUD, used while the title screen is up.</summary>
+        public void SetVisible(bool visible)
+        {
+            if (document == null) document = GetComponent<UIDocument>();
+            VisualElement root = document != null ? document.rootVisualElement : null;
+            if (root != null) root.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
         public void Refresh()
         {
             if (controller == null || controller.Board == null || turnLabel == null) return;

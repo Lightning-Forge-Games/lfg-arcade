@@ -81,6 +81,13 @@ namespace LightningForge.Chess.Game
         /// <summary>Moves played so far in algebraic notation, one entry per ply.</summary>
         public IReadOnlyList<string> MoveHistory => moveHistory;
 
+        /// <summary>
+        /// Incremented by every <see cref="NewGame"/>. Anything that thinks across frames
+        /// should capture this and abandon its work if it changes, or it will act on a
+        /// position that no longer exists.
+        /// </summary>
+        public int GameId { get; private set; }
+
         void Reset()
         {
             boardView = GetComponent<ChessBoardView>();
@@ -115,6 +122,7 @@ namespace LightningForge.Chess.Game
             pendingPromotionFrom = Square.None;
             pendingPromotionTo = Square.None;
             moveHistory.Clear();
+            GameId++;
 
             RebuildPieceViews();
             RefreshLegalMoves();
