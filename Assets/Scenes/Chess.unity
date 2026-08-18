@@ -180,6 +180,7 @@ GameObject:
   - component: {fileID: 653221817}
   - component: {fileID: 653221816}
   - component: {fileID: 653221815}
+  - component: {fileID: 653221819}
   m_Layer: 0
   m_Name: Chess Game
   m_TagString: Untagged
@@ -215,7 +216,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c521cfb4129ec06489e3aff54f022cb9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: LightningForge.Chess.Game::LightningForge.Chess.Game.PieceViewFactory
-  prefabs: []
+  prefabs:
+  - Type: 1
+    WhitePrefab: {fileID: 4141411791833618205, guid: 8095f935f6459554886173bae3c0499f, type: 3}
+    BlackPrefab: {fileID: 2663720853339615123, guid: 26dc1b26d9563cc458fd6bad62936ace, type: 3}
+  - Type: 2
+    WhitePrefab: {fileID: 7140871621932290244, guid: 8a5b902b4abc1094c86ddc14ee34a499, type: 3}
+    BlackPrefab: {fileID: 4552971039517014268, guid: 3ac809de61b02274cad1fc9095d59b5b, type: 3}
+  - Type: 3
+    WhitePrefab: {fileID: 2597921984621773081, guid: bdf371f3903fc654d9aad721d5e7a80f, type: 3}
+    BlackPrefab: {fileID: 7548166870223193217, guid: d37aace35a86c84448452c38a2f36201, type: 3}
+  - Type: 4
+    WhitePrefab: {fileID: 1543119714712896862, guid: 95674c18040683543896994e6fd40719, type: 3}
+    BlackPrefab: {fileID: 9092209494724625991, guid: 28c7085c831a21b439c530f9735bf146, type: 3}
+  - Type: 5
+    WhitePrefab: {fileID: 4122634818409332151, guid: 9f124a11c9152c249b11607075dcf02e, type: 3}
+    BlackPrefab: {fileID: 2077068790266386094, guid: b7c8a4b815f77db4da49639dc05cc0b7, type: 3}
+  - Type: 6
+    WhitePrefab: {fileID: 1842562220575393888, guid: f54b1a77bc382ea4291378cf5b909496, type: 3}
+    BlackPrefab: {fileID: 4511616875158813433, guid: e5b427041af30664799fbf6d26bec822, type: 3}
   whiteMaterial: {fileID: 2100000, guid: 3a66d1b1c22685b44abafc094a4d7b3a, type: 2}
   blackMaterial: {fileID: 2100000, guid: 9f4063de2d78bfa49aa64c9d2841a490, type: 2}
   pawnHeight: 0.5
@@ -254,6 +273,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &653221819
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 653221814}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9134cd11357b4d046aac16319b565dfa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: LightningForge.Chess.Game::LightningForge.Chess.Game.ChessPointerInput
+  controller: {fileID: 653221815}
+  targetCamera: {fileID: 1752491941}
 --- !u!1 &949430705
 GameObject:
   m_ObjectHideFlags: 0

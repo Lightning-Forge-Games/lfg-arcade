@@ -38,6 +38,13 @@ namespace LightningForge.Chess.Game
                 : CreateStandIn(type, color, parent);
 
             instance.name = $"{color}_{type}";
+
+            // Models face +Z. Turn Black around so the two sides face each other, which
+            // only shows on the knight but is what a real set looks like.
+            instance.transform.localRotation = color == PieceColor.Black
+                ? Quaternion.Euler(0f, 180f, 0f)
+                : Quaternion.identity;
+
             return instance;
         }
 

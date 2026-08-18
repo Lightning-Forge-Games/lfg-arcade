@@ -1,11 +1,8 @@
 {
-    "name": "LightningForge.Chess.Game",
-    "rootNamespace": "LightningForge.Chess.Game",
-    "references": [
-        "LightningForge.Chess.Core",
-        "Unity.InputSystem"
-    ],
-    "includePlatforms": [],
+    "name": "LightningForge.Chess.Editor",
+    "rootNamespace": "LightningForge.Chess.EditorTools",
+    "references": [ "LightningForge.Chess.Core", "LightningForge.Chess.Game" ],
+    "includePlatforms": [ "Editor" ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

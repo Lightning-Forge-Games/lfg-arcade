@@ -44,8 +44,18 @@ namespace LightningForge.Chess.Game
 
         void Awake()
         {
+            EnsureInitialised();
+        }
+
+        /// <summary>
+        /// Rebuilds state if it is missing. <see cref="board"/> is a plain C# object, so a
+        /// domain reload while in play mode (any script recompile) wipes it without Awake
+        /// running again. Entry points call this so the game recovers instead of throwing.
+        /// </summary>
+        void EnsureInitialised()
+        {
             if (boardView == null) boardView = GetComponent<ChessBoardView>();
-            NewGame();
+            if (board == null) NewGame();
         }
 
         public void NewGame()
@@ -70,6 +80,8 @@ namespace LightningForge.Chess.Game
         /// </summary>
         public void HandlePointer(Vector2 screenPosition, Camera camera)
         {
+            EnsureInitialised();
+
             if (camera == null) camera = Camera.main;
             if (camera == null || board == null) return;
             if (GameStatusEvaluator.IsGameOver(Status)) return;
@@ -85,6 +97,8 @@ namespace LightningForge.Chess.Game
 
         public void HandleSquarePicked(int square)
         {
+            EnsureInitialised();
+
             if (selectedSquare != Square.None)
             {
                 foreach (Move move in movesFromSelection)
@@ -104,6 +118,8 @@ namespace LightningForge.Chess.Game
 
         public bool TryPlayUci(string uci)
         {
+            EnsureInitialised();
+
             foreach (Move move in legalMoves)
             {
                 if (move.ToUci() == uci)
