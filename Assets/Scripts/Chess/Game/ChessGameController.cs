@@ -38,13 +38,25 @@ namespace LightningForge.Chess.Game
         Board board;
         int selectedSquare = Square.None;
         Coroutine running;
+        int pendingPromotionFrom = Square.None;
+        int pendingPromotionTo = Square.None;
 
         public Board Board => board;
         public GameStatus Status { get; private set; } = GameStatus.Ongoing;
         public bool IsAnimating => running != null;
 
+        /// <summary>True while waiting for the player to choose a promotion piece.</summary>
+        public bool AwaitingPromotion => pendingPromotionFrom != Square.None;
+
         public event Action<Move> MoveMade;
         public event Action<GameStatus> StatusChanged;
+
+        /// <summary>
+        /// Raised when a pawn reaches the last rank, with the origin and destination squares.
+        /// Answer it with <see cref="CompletePromotion"/>. With no subscriber the controller
+        /// falls back to <see cref="autoPromotion"/> so the game stays playable on its own.
+        /// </summary>
+        public event Action<int, int> PromotionRequested;
 
         /// <summary>The view currently standing on a square, or null. Exposed for tests.</summary>
         public GameObject GetPieceView(int square) =>
@@ -81,6 +93,8 @@ namespace LightningForge.Chess.Game
 
             board = string.IsNullOrWhiteSpace(startingFen) ? new Board() : new Board(startingFen);
             selectedSquare = Square.None;
+            pendingPromotionFrom = Square.None;
+            pendingPromotionTo = Square.None;
 
             RebuildPieceViews();
             RefreshLegalMoves();
@@ -119,14 +133,27 @@ namespace LightningForge.Chess.Game
 
             // Ignore picks mid-animation: the board has already advanced, so acting now
             // would let a second move start before the first finished moving on screen.
-            if (IsAnimating || GameStatusEvaluator.IsGameOver(Status)) return;
+            if (IsAnimating || AwaitingPromotion || GameStatusEvaluator.IsGameOver(Status)) return;
 
             if (selectedSquare != Square.None)
             {
                 foreach (Move move in movesFromSelection)
                 {
                     if (move.To != square) continue;
-                    if (move.IsPromotion && move.Promotion != autoPromotion) continue;
+
+                    if (move.IsPromotion)
+                    {
+                        // Hand the choice to the UI when something is listening, so
+                        // underpromotion is reachable rather than silently queening.
+                        if (PromotionRequested != null)
+                        {
+                            pendingPromotionFrom = move.From;
+                            pendingPromotionTo = move.To;
+                            PromotionRequested(move.From, move.To);
+                            return;
+                        }
+                        if (move.Promotion != autoPromotion) continue;
+                    }
 
                     PlayMove(move);
                     return;
@@ -136,6 +163,36 @@ namespace LightningForge.Chess.Game
             Piece piece = board[square];
             if (piece.IsSome && piece.Color == board.SideToMove) Select(square);
             else ClearSelection();
+        }
+
+        /// <summary>
+        /// Plays the promotion the player picked. Returns false if nothing was pending or
+        /// the piece is not a legal promotion here.
+        /// </summary>
+        public bool CompletePromotion(PieceType promotion)
+        {
+            if (!AwaitingPromotion) return false;
+
+            foreach (Move move in legalMoves)
+            {
+                if (move.From != pendingPromotionFrom) continue;
+                if (move.To != pendingPromotionTo) continue;
+                if (!move.IsPromotion || move.Promotion != promotion) continue;
+
+                pendingPromotionFrom = Square.None;
+                pendingPromotionTo = Square.None;
+                PlayMove(move);
+                return true;
+            }
+
+            return false;
+        }
+
+        public void CancelPromotion()
+        {
+            pendingPromotionFrom = Square.None;
+            pendingPromotionTo = Square.None;
+            ClearSelection();
         }
 
         public bool TryPlayUci(string uci)

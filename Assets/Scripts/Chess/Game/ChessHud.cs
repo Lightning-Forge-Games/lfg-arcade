@@ -19,6 +19,7 @@ namespace LightningForge.Chess.Game
         UIDocument document;
         Label statusLabel;
         Label turnLabel;
+        VisualElement promotionPanel;
 
         void Awake()
         {
@@ -35,6 +36,7 @@ namespace LightningForge.Chess.Game
             {
                 controller.StatusChanged += OnStatusChanged;
                 controller.MoveMade += OnMoveMade;
+                controller.PromotionRequested += OnPromotionRequested;
             }
             Refresh();
         }
@@ -45,8 +47,11 @@ namespace LightningForge.Chess.Game
             {
                 controller.StatusChanged -= OnStatusChanged;
                 controller.MoveMade -= OnMoveMade;
+                controller.PromotionRequested -= OnPromotionRequested;
             }
         }
+
+        void OnPromotionRequested(int from, int to) => ShowPromotionPicker(true);
 
         void OnStatusChanged(GameStatus status) => Refresh();
         void OnMoveMade(Move move) => Refresh();
@@ -108,6 +113,77 @@ namespace LightningForge.Chess.Game
             SetBorderWidth(button, 1f);
             SetBorderRadius(button, 5f);
             root.Add(button);
+
+            BuildPromotionPicker(root);
+        }
+
+        void BuildPromotionPicker(VisualElement root)
+        {
+            promotionPanel = new VisualElement();
+            promotionPanel.style.position = Position.Absolute;
+            promotionPanel.style.left = 0f;
+            promotionPanel.style.right = 0f;
+            promotionPanel.style.bottom = 90f;
+            promotionPanel.style.alignItems = Align.Center;
+            promotionPanel.style.display = DisplayStyle.None;
+            root.Add(promotionPanel);
+
+            var box = new VisualElement();
+            box.style.backgroundColor = new Color(0.05f, 0.05f, 0.06f, 0.88f);
+            box.style.paddingLeft = 16f;
+            box.style.paddingRight = 16f;
+            box.style.paddingTop = 12f;
+            box.style.paddingBottom = 12f;
+            box.style.alignItems = Align.Center;
+            SetBorderRadius(box, 7f);
+            SetBorderWidth(box, 1f);
+            SetBorderColor(box, new Color(0.42f, 0.33f, 0.22f, 1f));
+            promotionPanel.Add(box);
+
+            var prompt = new Label("Promote to");
+            prompt.style.color = new Color(0.93f, 0.90f, 0.84f);
+            prompt.style.fontSize = 15f;
+            prompt.style.marginBottom = 8f;
+            box.Add(prompt);
+
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            box.Add(row);
+
+            AddPromotionButton(row, "Queen", PieceType.Queen);
+            AddPromotionButton(row, "Rook", PieceType.Rook);
+            AddPromotionButton(row, "Bishop", PieceType.Bishop);
+            AddPromotionButton(row, "Knight", PieceType.Knight);
+        }
+
+        void AddPromotionButton(VisualElement parent, string label, PieceType type)
+        {
+            var button = new Button(() =>
+            {
+                if (controller != null) controller.CompletePromotion(type);
+                ShowPromotionPicker(false);
+                Refresh();
+            });
+            button.text = label;
+            button.style.marginLeft = 4f;
+            button.style.marginRight = 4f;
+            button.style.paddingLeft = 14f;
+            button.style.paddingRight = 14f;
+            button.style.paddingTop = 8f;
+            button.style.paddingBottom = 8f;
+            button.style.fontSize = 13f;
+            button.style.color = new Color(0.93f, 0.90f, 0.84f);
+            button.style.backgroundColor = new Color(0.14f, 0.13f, 0.12f, 1f);
+            SetBorderRadius(button, 4f);
+            SetBorderWidth(button, 1f);
+            SetBorderColor(button, new Color(0.35f, 0.28f, 0.19f, 1f));
+            parent.Add(button);
+        }
+
+        void ShowPromotionPicker(bool visible)
+        {
+            if (promotionPanel == null) return;
+            promotionPanel.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         static void SetBorderRadius(VisualElement element, float radius)

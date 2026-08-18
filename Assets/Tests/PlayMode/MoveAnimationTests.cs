@@ -58,14 +58,18 @@ namespace LightningForge.Chess.Tests.PlayMode
         IEnumerator PlayAndSettle(string uci)
         {
             Assert.IsTrue(controller.TryPlayUci(uci), "expected " + uci + " to be legal");
+            yield return Settle(uci);
+        }
 
+        IEnumerator Settle(string what)
+        {
             float timeout = 5f;
             while (controller.IsAnimating && timeout > 0f)
             {
                 timeout -= Time.deltaTime;
                 yield return null;
             }
-            Assert.IsFalse(controller.IsAnimating, "animation did not finish for " + uci);
+            Assert.IsFalse(controller.IsAnimating, "animation did not finish for " + what);
 
             // Destroy is deferred to the end of the frame, so a captured view only compares
             // equal to null once another frame has ticked.
@@ -157,6 +161,44 @@ namespace LightningForge.Chess.Tests.PlayMode
             Assert.IsNotNull(promoted, "a queen view should stand on a8");
             Assert.AreNotSame(pawn, promoted, "the pawn view should have been replaced");
             Assert.AreEqual(PieceType.Queen, controller.Board[Sq("a8")].Type);
+        }
+
+        [UnityTest]
+        public IEnumerator PickerMakesUnderpromotionReachable()
+        {
+            controller = Build("4k3/P7/8/8/8/8/8/4K3 w - - 0 1");
+
+            int requestedFrom = Square.None;
+            int requestedTo = Square.None;
+            controller.PromotionRequested += (from, to) => { requestedFrom = from; requestedTo = to; };
+
+            controller.HandleSquarePicked(Sq("a7"));
+            controller.HandleSquarePicked(Sq("a8"));
+
+            Assert.AreEqual(Sq("a7"), requestedFrom, "picker should be asked about the pawn");
+            Assert.AreEqual(Sq("a8"), requestedTo);
+            Assert.IsTrue(controller.AwaitingPromotion, "controller should be waiting for a choice");
+            Assert.IsTrue(controller.Board[Sq("a7")].IsSome, "the move must not play before choosing");
+
+            Assert.IsTrue(controller.CompletePromotion(PieceType.Knight));
+            yield return Settle("underpromotion");
+
+            Assert.AreEqual(PieceType.Knight, controller.Board[Sq("a8")].Type,
+                "underpromotion to a knight should be possible");
+            Assert.IsFalse(controller.AwaitingPromotion);
+        }
+
+        [UnityTest]
+        public IEnumerator PromotionAutoQueensWhenNothingIsListening()
+        {
+            controller = Build("4k3/P7/8/8/8/8/8/4K3 w - - 0 1");
+
+            controller.HandleSquarePicked(Sq("a7"));
+            controller.HandleSquarePicked(Sq("a8"));
+            yield return Settle("auto promotion");
+
+            Assert.AreEqual(PieceType.Queen, controller.Board[Sq("a8")].Type,
+                "with no picker attached the pawn should still promote");
         }
 
         [UnityTest]
