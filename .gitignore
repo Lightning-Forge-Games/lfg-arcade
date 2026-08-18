@@ -51,3 +51,6 @@ crashlytics-build.properties
 /.idea/
 /.vs/
 /.vscode/
+
+# Generated screenshots
+/Assets/Screenshots/
