@@ -25,7 +25,11 @@ namespace LightningForge.Arcade.Game
         /// <summary>Tile accent, used for the tile edge and its icon.</summary>
         public Color Accent;
 
-        /// <summary>False while a game has no computer opponent yet.</summary>
+        /// <summary>
+        /// False when there is nobody to play against. Without a computer opponent the
+        /// difficulty and the choice of seat are both meaningless, so the setup screen
+        /// drops them and offers a solo game instead of a match.
+        /// </summary>
         public bool SupportsSinglePlayer = true;
 
         /// <summary>False for games that have no online mode.</summary>
@@ -101,6 +105,9 @@ namespace LightningForge.Arcade.Game
                 Blurb = "Reds and colours on a full table. Solo or pass the cue.",
                 Accent = new Color(0.35f, 0.60f, 0.40f),
                 SupportsOnline = false,
+                SupportsSinglePlayer = false,
+                FirstSeat = "Player 1",
+                SecondSeat = "Player 2",
                 Playable = true,
             },
         };

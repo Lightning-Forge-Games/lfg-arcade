@@ -38,6 +38,9 @@ namespace LightningForge.Arcade.Game
         Label setupSummary;
         VisualElement difficultyRow;
         VisualElement sideRow;
+        Label difficultyHeading;
+        Label sideHeading;
+        Button singleButton;
 
         public GameMode Mode { get; private set; } = GameMode.None;
         public bool IsShowing => Mode == GameMode.None;
@@ -187,7 +190,8 @@ namespace LightningForge.Arcade.Game
             setupSummary.style.marginBottom = 14f;
             setupPage.Add(setupSummary);
 
-            setupPage.Add(ArcadeTheme.Heading("Difficulty"));
+            difficultyHeading = ArcadeTheme.Heading("Difficulty");
+            setupPage.Add(difficultyHeading);
             difficultyRow = new VisualElement();
             difficultyRow.style.flexDirection = FlexDirection.Row;
             setupPage.Add(difficultyRow);
@@ -200,7 +204,7 @@ namespace LightningForge.Arcade.Game
                 difficultyRow.Add(b);
             }
 
-            var sideHeading = ArcadeTheme.Heading("Play as");
+            sideHeading = ArcadeTheme.Heading("Play as");
             sideHeading.style.marginTop = 12f;
             setupPage.Add(sideHeading);
             sideRow = new VisualElement();
@@ -212,10 +216,10 @@ namespace LightningForge.Arcade.Game
             actions.style.marginTop = 18f;
             setupPage.Add(actions);
 
-            Button single = ArcadeTheme.MakeButton("Single Player",
+            singleButton = ArcadeTheme.MakeButton("Single Player",
                 () => StartGame(GameMode.SinglePlayer), 150f);
-            single.style.marginLeft = 4f; single.style.marginRight = 4f;
-            actions.Add(single);
+            singleButton.style.marginLeft = 4f; singleButton.style.marginRight = 4f;
+            actions.Add(singleButton);
 
             Button hotseat = ArcadeTheme.MakeButton("Hot Seat",
                 () => StartGame(GameMode.HotSeat), 130f);
@@ -239,6 +243,17 @@ namespace LightningForge.Arcade.Game
             if (info == null) return;
 
             setupSummary.text = info.Title;
+
+            // With no computer opponent there is nothing to set a difficulty for and no
+            // side to take, so both pickers go rather than sitting there doing nothing.
+            DisplayStyle versusComputer = info.SupportsSinglePlayer
+                ? DisplayStyle.Flex
+                : DisplayStyle.None;
+            difficultyHeading.style.display = versusComputer;
+            difficultyRow.style.display = versusComputer;
+            sideHeading.style.display = versusComputer;
+            sideRow.style.display = versusComputer;
+            singleButton.text = info.SupportsSinglePlayer ? "Single Player" : "Solo";
 
             // The side picker only names seats the game actually has.
             sideRow.Clear();
