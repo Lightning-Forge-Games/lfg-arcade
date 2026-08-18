@@ -10,19 +10,19 @@ namespace LightningForge.Chess.Game
     /// All four edges are labelled, as on a real board, with each edge oriented to read
     /// from the player nearest it. That way both players always have coordinates and
     /// nothing has to be re-oriented when the view flips.
+    ///
+    /// Glyphs are centred on the frame band, taking the distance from the board view so
+    /// they track the frame if its width ever changes.
     /// </summary>
     public class BoardCoordinates : MonoBehaviour
     {
         [SerializeField] ChessBoardView boardView;
 
-        [Tooltip("How far outside the playing surface the glyphs sit, in squares.")]
-        [SerializeField] float margin = 0.62f;
-
-        [SerializeField] float fontSize = 3.2f;
+        [SerializeField] float fontSize = 2.2f;
         [SerializeField] Color labelColor = new Color(0.74f, 0.70f, 0.62f, 1f);
 
         [Tooltip("Height of the glyphs. Must clear the frame rail, which stands proud of the squares.")]
-        [SerializeField] float lift = 0.25f;
+        [SerializeField] float lift = 0.26f;
 
         void Awake()
         {
@@ -38,7 +38,8 @@ namespace LightningForge.Chess.Game
         {
             if (boardView == null) return;
 
-            float offset = boardView.SquareSize * (3.5f + margin);
+            // Centre of the frame band, matching where the rails themselves are placed.
+            float offset = boardView.FrameCenterDistance;
 
             // Text lies flat: local +Z points down into the board so the readable face
             // looks up, and local +Y (the top of the letters) points away from the reader.
@@ -48,7 +49,7 @@ namespace LightningForge.Chess.Game
             for (int i = 0; i < 8; i++)
             {
                 float along = (i - 3.5f) * boardView.SquareSize;
-                string file = ((char)('a' + i)).ToString();
+                string file = ((char)('A' + i)).ToString();
                 string rank = (i + 1).ToString();
 
                 // Files on the near and far edges.
@@ -74,7 +75,9 @@ namespace LightningForge.Chess.Game
             label.color = labelColor;
             label.alignment = TextAlignmentOptions.Center;
             label.enableWordWrapping = false;
-            label.rectTransform.sizeDelta = new Vector2(boardView.SquareSize, boardView.SquareSize);
+
+            // Rect matches the frame band so the glyph centres within it both ways.
+            label.rectTransform.sizeDelta = new Vector2(boardView.SquareSize, boardView.FrameWidth);
         }
     }
 }

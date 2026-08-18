@@ -138,8 +138,8 @@ namespace LightningForge.Chess.Game
             panel.style.position = Position.Absolute;
             panel.style.top = 74f;
             panel.style.right = 22f;
-            panel.style.width = 150f;
-            panel.style.maxHeight = 320f;
+            panel.style.width = 204f;
+            panel.style.maxHeight = 340f;
             panel.style.backgroundColor = new Color(0.05f, 0.05f, 0.06f, 0.72f);
             panel.style.paddingLeft = 10f;
             panel.style.paddingRight = 6f;
@@ -158,6 +158,9 @@ namespace LightningForge.Chess.Game
             moveList = new ScrollView(ScrollViewMode.Vertical);
             moveList.style.flexGrow = 1f;
             moveList.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+
+            // The vertical scroller draws over the content, so keep the rows clear of it.
+            moveList.contentContainer.style.paddingRight = 18f;
             panel.Add(moveList);
         }
 
@@ -181,13 +184,13 @@ namespace LightningForge.Chess.Game
                 var number = new Label(((i / 2) + 1) + ".");
                 number.style.color = new Color(0.55f, 0.52f, 0.47f);
                 number.style.fontSize = 12f;
-                number.style.width = 24f;
+                number.style.width = 30f;
                 row.Add(number);
 
                 var white = new Label(history[i]);
                 white.style.color = new Color(0.93f, 0.90f, 0.84f);
                 white.style.fontSize = 12f;
-                white.style.width = 52f;
+                white.style.width = 63f;
                 row.Add(white);
 
                 if (i + 1 < history.Count)
@@ -195,7 +198,7 @@ namespace LightningForge.Chess.Game
                     var black = new Label(history[i + 1]);
                     black.style.color = new Color(0.78f, 0.76f, 0.72f);
                     black.style.fontSize = 12f;
-                    black.style.width = 52f;
+                    black.style.width = 63f;
                     row.Add(black);
                 }
 

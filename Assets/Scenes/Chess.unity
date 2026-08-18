@@ -423,8 +423,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: LightningForge.Chess.Game::LightningForge.Chess.Game.BoardCoordinates
   boardView: {fileID: 653221817}
-  margin: 0.62
-  fontSize: 3.2
+  fontSize: 2.2
   labelColor: {r: 0.74, g: 0.7, b: 0.62, a: 1}
   lift: 0.26
 --- !u!1 &829050092

@@ -48,6 +48,15 @@ namespace LightningForge.Chess.Game
         public float SquareSize => squareSize;
         public int SelectedSquare => selectedSquare;
 
+        public float FrameWidth => frameWidth;
+
+        /// <summary>
+        /// Distance from the board centre to the middle of the frame band. Mirrors how the
+        /// rails are positioned in <see cref="BuildFrame"/>, so anything placed here sits
+        /// centred on the border rather than guessing an offset.
+        /// </summary>
+        public float FrameCenterDistance => (8f * squareSize + frameWidth) * 0.5f;
+
         void Awake()
         {
             if (squareTransforms[0] == null) Build();
