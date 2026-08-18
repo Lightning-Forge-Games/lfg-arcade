@@ -30,6 +30,12 @@ namespace LightningForge.Chess.Game
         ScrollView moveList;
         int renderedMoveCount = -1;
 
+        VisualElement statusBar;
+        VisualElement gameOverPanel;
+        Label gameOverHeadline;
+        Label gameOverDetail;
+        Button playAgainButton;
+
         void Awake()
         {
             document = GetComponent<UIDocument>();
@@ -78,6 +84,7 @@ namespace LightningForge.Chess.Game
 
             // Status bar across the top.
             var bar = new VisualElement();
+            statusBar = bar;
             bar.style.position = Position.Absolute;
             bar.style.top = 18f;
             bar.style.left = 0f;
@@ -145,6 +152,64 @@ namespace LightningForge.Chess.Game
 
             BuildPromotionPicker(root);
             BuildMoveList(root);
+            BuildGameOverPanel(root);
+        }
+
+        /// <summary>
+        /// End of game overlay. A line of text in the status bar is easy to miss, and
+        /// missing it leaves the player clicking a board that will not respond, so the
+        /// result dims the board and takes the centre of the screen.
+        /// </summary>
+        void BuildGameOverPanel(VisualElement root)
+        {
+            gameOverPanel = new VisualElement();
+            gameOverPanel.style.position = Position.Absolute;
+            gameOverPanel.style.left = 0; gameOverPanel.style.right = 0;
+            gameOverPanel.style.top = 0; gameOverPanel.style.bottom = 0;
+            gameOverPanel.style.backgroundColor = new Color(0.03f, 0.03f, 0.04f, 0.62f);
+            gameOverPanel.style.alignItems = Align.Center;
+            gameOverPanel.style.justifyContent = Justify.Center;
+            gameOverPanel.style.display = DisplayStyle.None;
+            root.Add(gameOverPanel);
+
+            var box = new VisualElement();
+            box.style.backgroundColor = new Color(0.06f, 0.06f, 0.07f, 0.96f);
+            box.style.paddingLeft = 46f; box.style.paddingRight = 46f;
+            box.style.paddingTop = 30f; box.style.paddingBottom = 30f;
+            box.style.alignItems = Align.Center;
+            SetBorderRadius(box, 9f);
+            SetBorderWidth(box, 1f);
+            SetBorderColor(box, new Color(0.46f, 0.36f, 0.24f, 1f));
+            gameOverPanel.Add(box);
+
+            gameOverHeadline = new Label("Checkmate");
+            gameOverHeadline.style.color = new Color(0.96f, 0.93f, 0.87f);
+            gameOverHeadline.style.fontSize = 42f;
+            gameOverHeadline.style.unityFontStyleAndWeight = FontStyle.Bold;
+            gameOverHeadline.style.letterSpacing = 3f;
+            box.Add(gameOverHeadline);
+
+            gameOverDetail = new Label(string.Empty);
+            gameOverDetail.style.color = new Color(0.95f, 0.72f, 0.30f);
+            gameOverDetail.style.fontSize = 17f;
+            gameOverDetail.style.marginTop = 4f;
+            gameOverDetail.style.marginBottom = 20f;
+            box.Add(gameOverDetail);
+
+            playAgainButton = MakeControl("Play Again", () =>
+            {
+                if (controller != null) controller.NewGame();
+                Refresh();
+            });
+            playAgainButton.style.width = 210f;
+            box.Add(playAgainButton);
+
+            Button menuButton = MakeControl("Back to Menu", () =>
+            {
+                if (titleScreen != null) titleScreen.QuitToMenu();
+            });
+            menuButton.style.width = 210f;
+            box.Add(menuButton);
         }
 
         /// <summary>Scrolling list of the game so far, paired up as White/Black per move.</summary>
@@ -286,6 +351,7 @@ namespace LightningForge.Chess.Game
             SetBorderRadius(button, 4f);
             SetBorderWidth(button, 1f);
             SetBorderColor(button, new Color(0.35f, 0.28f, 0.19f, 1f));
+            UiButtonFeedback.Apply(button);
             parent.Add(button);
         }
 
@@ -313,7 +379,33 @@ namespace LightningForge.Chess.Game
             SetBorderColor(button, new Color(0.42f, 0.33f, 0.22f, 1f));
             SetBorderWidth(button, 1f);
             SetBorderRadius(button, 5f);
+            UiButtonFeedback.Apply(button);
             return button;
+        }
+
+        void RefreshGameOver(string headline, string detail)
+        {
+            if (gameOverPanel == null || controller == null) return;
+
+            bool over = GameStatusEvaluator.IsGameOver(controller.Status);
+            gameOverPanel.style.display = over ? DisplayStyle.Flex : DisplayStyle.None;
+
+            // The overlay states the result, so the status bar would only repeat it.
+            if (statusBar != null) statusBar.style.display = over ? DisplayStyle.None : DisplayStyle.Flex;
+
+            if (!over) return;
+
+            // Lead with the outcome, since that is what the player wants to know first.
+            gameOverHeadline.text = headline;
+            gameOverDetail.text = detail;
+
+            // Restarting only one side of an online match would desync it, so that route
+            // is left to leaving the match.
+            bool online = titleScreen != null && titleScreen.Mode == GameMode.Online;
+            if (playAgainButton != null)
+            {
+                playAgainButton.style.display = online ? DisplayStyle.None : DisplayStyle.Flex;
+            }
         }
 
         void RefreshViewButton()
@@ -409,6 +501,7 @@ namespace LightningForge.Chess.Game
             RefreshMoveList();
             RefreshViewButton();
             RefreshPieceButton();
+            RefreshGameOver(headline, detail);
         }
     }
 }

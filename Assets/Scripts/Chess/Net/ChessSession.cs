@@ -61,14 +61,17 @@ namespace LightningForge.Chess.Net
 
         public async void Leave()
         {
-            if (runner != null)
-            {
-                await runner.Shutdown();
-                runner = null;
-            }
+            // Detach before awaiting. Shutdown takes a moment, IsConnected goes false as
+            // soon as it starts, and the lobby offers Play Online again the instant it
+            // does. A runner cannot be started twice, so anything still holding this one
+            // would fail on the next match.
+            NetworkRunner leaving = runner;
+            runner = null;
             MatchCode = null;
             LastError = null;
             Raise();
+
+            if (leaving != null) await leaving.Shutdown();
         }
 
         async Task Connect(string code)
@@ -84,8 +87,13 @@ namespace LightningForge.Chess.Net
             {
                 if (runner == null)
                 {
-                    runner = gameObject.GetComponent<NetworkRunner>();
-                    if (runner == null) runner = gameObject.AddComponent<NetworkRunner>();
+                    // Fusion destroys the runner's GameObject when the session ends, and it
+                    // does that on an unexpected disconnect as well as on Leave. Sharing this
+                    // object would take the lobby UI and this component down with it, leaving
+                    // no way back into a match, so the runner gets one of its own. It is left
+                    // at the root because Fusion marks it DontDestroyOnLoad, which only
+                    // applies to root objects.
+                    runner = new GameObject("Chess Network Runner").AddComponent<NetworkRunner>();
                 }
                 runner.ProvideInput = false;
 

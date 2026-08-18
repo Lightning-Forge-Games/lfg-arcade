@@ -185,6 +185,7 @@ namespace LightningForge.Chess.Game
             button.style.borderLeftColor = border; button.style.borderRightColor = border;
             button.style.borderTopWidth = 1f; button.style.borderBottomWidth = 1f;
             button.style.borderLeftWidth = 1f; button.style.borderRightWidth = 1f;
+            UiButtonFeedback.Apply(button);
             return button;
         }
 

@@ -42,18 +42,27 @@ namespace LightningForge.Chess.Net
                 titleScreen.Quit += OnQuit;
             }
             Refresh();
+        }
 
-            // An invite link should land the player in that match without making them
-            // pick a mode first.
-            if (session != null)
-            {
-                string code = session.CodeFromUrl;
-                if (!string.IsNullOrEmpty(code))
-                {
-                    if (titleScreen != null) titleScreen.SkipToOnline();
-                    session.JoinMatch(code);
-                }
-            }
+        /// <summary>
+        /// An invite link should land the player in that match without making them pick a
+        /// mode first.
+        ///
+        /// This waits for Start rather than acting in OnEnable. TitleScreen shows itself
+        /// from its own OnEnable, and if that runs second it puts the menu straight back
+        /// over a match that is already being joined. The player then has to press Play
+        /// Online, which restarts the game underneath the live connection.
+        /// </summary>
+        void Start()
+        {
+            if (session == null) return;
+
+            string code = session.CodeFromUrl;
+            if (string.IsNullOrEmpty(code)) return;
+
+            if (titleScreen != null) titleScreen.SkipToOnline();
+            session.JoinMatch(code);
+            Refresh();
         }
 
         void OnDisable()
@@ -155,6 +164,7 @@ namespace LightningForge.Chess.Net
             b.style.backgroundColor = new Color(0.13f, 0.12f, 0.12f, 1f);
             Round(b, 4f);
             Border(b, new Color(0.34f, 0.27f, 0.19f, 1f), 1f);
+            UiButtonFeedback.Apply(b);
         }
 
         static void Round(VisualElement e, float r)
