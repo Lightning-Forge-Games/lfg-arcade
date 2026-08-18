@@ -3,133 +3,114 @@ using UnityEngine;
 namespace LightningForge.Arcade.Game.Yahtzee
 {
     /// <summary>
-    /// One die: a cube with pips on all six faces, turned to show the value rolled.
+    /// One die: a cube with pips on all six faces, thrown and read rather than set.
     ///
-    /// Pips are placed once and the die is rotated, rather than the faces being repainted,
-    /// because that is what a die is. It also means the value showing and the value stored
-    /// cannot drift apart: the rotation is derived from the number every time it is set.
+    /// The value is not chosen and then displayed. The die is thrown, it tumbles, and
+    /// whichever face ends up pointing at the ceiling is the number. That is the whole
+    /// point of rolling dice, and it means the face showing and the value scored cannot
+    /// disagree, because there is only one of them.
     /// </summary>
+    [RequireComponent(typeof(Rigidbody), typeof(BoxCollider))]
     public class YahtzeeDie : MonoBehaviour
     {
-        // Opposite faces sum to seven, as on a real die.
-        const int Up = 1, Down = 6, Forward = 2, Back = 5, Right = 3, Left = 4;
+        Rigidbody body;
+        MeshRenderer shell;
+        Color faceColour;
+        Color heldColour;
 
-        public int Value { get; private set; } = 1;
         public bool Held { get; private set; }
 
-        Transform pipRoot;
-        MeshRenderer body;
+        /// <summary>Whichever face is pointing up right now.</summary>
+        public int Value => PippedDie.ValueShowing(transform.rotation);
 
-        public static YahtzeeDie Create(Transform parent, Color faceColour, Color pipColour)
+        public bool IsAtRest =>
+            body == null || body.IsSleeping()
+            || (body.linearVelocity.sqrMagnitude < 0.004f && body.angularVelocity.sqrMagnitude < 0.04f);
+
+        public static YahtzeeDie Create(Transform parent, Color face, Color pip, Color held)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = "Die";
             go.transform.SetParent(parent, false);
-            go.transform.localScale = Vector3.one * 0.8f;
+            go.transform.localScale = Vector3.one * 0.42f;
 
             var die = go.AddComponent<YahtzeeDie>();
-            die.body = go.GetComponent<MeshRenderer>();
-            die.body.sharedMaterial = ArcadeMaterials.Get(faceColour, 0.45f);
+            die.shell = go.GetComponent<MeshRenderer>();
+            die.faceColour = face;
+            die.heldColour = held;
+            die.shell.sharedMaterial = ArcadeMaterials.Get(face, 0.45f);
 
-            die.BuildPips(pipColour);
-            die.SetValue(1);
+            // RequireComponent already put these on when the die was added, and asking for
+            // a second Rigidbody returns null rather than another one.
+            var body = go.GetComponent<Rigidbody>();
+            body.mass = 0.05f;
+            body.linearDamping = 0.2f;
+            body.angularDamping = 0.35f;
+            body.interpolation = RigidbodyInterpolation.Interpolate;
+            // A tumbling die is small and fast, and will pass through a tray wall otherwise.
+            body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            die.body = body;
+
+            go.GetComponent<BoxCollider>().material = DicePhysics();
+            PippedDie.BuildPips(go.transform, pip);
             return die;
         }
 
-        void BuildPips(Color pipColour)
-        {
-            var root = new GameObject("Pips");
-            root.transform.SetParent(transform, false);
-            pipRoot = root.transform;
+        static PhysicsMaterial dicePhysics;
 
-            AddFace(Vector3.up, Vector3.right, Vector3.forward, Up, pipColour);
-            AddFace(Vector3.down, Vector3.right, Vector3.back, Down, pipColour);
-            AddFace(Vector3.forward, Vector3.right, Vector3.up, Forward, pipColour);
-            AddFace(Vector3.back, Vector3.left, Vector3.up, Back, pipColour);
-            AddFace(Vector3.right, Vector3.back, Vector3.up, Right, pipColour);
-            AddFace(Vector3.left, Vector3.forward, Vector3.up, Left, pipColour);
-        }
-
-        /// <summary>The pip layout for each number, in face-local units of a quarter width.</summary>
-        static Vector2[] LayoutFor(int value)
+        /// <summary>Enough bounce to tumble, enough friction to stop rather than slide.</summary>
+        static PhysicsMaterial DicePhysics()
         {
-            switch (value)
+            if (dicePhysics != null) return dicePhysics;
+            dicePhysics = new PhysicsMaterial("YahtzeeDie")
             {
-                case 1: return new[] { Vector2.zero };
-                case 2: return new[] { new Vector2(-1, 1), new Vector2(1, -1) };
-                case 3: return new[] { new Vector2(-1, 1), Vector2.zero, new Vector2(1, -1) };
-                case 4: return new[]
-                {
-                    new Vector2(-1, 1), new Vector2(1, 1),
-                    new Vector2(-1, -1), new Vector2(1, -1),
-                };
-                case 5: return new[]
-                {
-                    new Vector2(-1, 1), new Vector2(1, 1), Vector2.zero,
-                    new Vector2(-1, -1), new Vector2(1, -1),
-                };
-                default: return new[]
-                {
-                    new Vector2(-1, 1), new Vector2(1, 1),
-                    new Vector2(-1, 0), new Vector2(1, 0),
-                    new Vector2(-1, -1), new Vector2(1, -1),
-                };
-            }
+                bounciness = 0.32f,
+                dynamicFriction = 0.42f,
+                staticFriction = 0.5f,
+                frictionCombine = PhysicsMaterialCombine.Average,
+                bounceCombine = PhysicsMaterialCombine.Average,
+            };
+            return dicePhysics;
         }
 
-        void AddFace(Vector3 normal, Vector3 right, Vector3 up, int value, Color pipColour)
+        /// <summary>Throws the die from a point, with enough spin to tumble properly.</summary>
+        public void Throw(Vector3 from, Vector3 velocity)
         {
-            const float spread = 0.26f;
-            Material material = ArcadeMaterials.Get(pipColour, 0.2f);
-
-            foreach (Vector2 offset in LayoutFor(value))
-            {
-                var pip = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                pip.name = "Pip" + value;
-                pip.transform.SetParent(pipRoot, false);
-                // Just proud of the face, so it catches the light like a real pip.
-                pip.transform.localPosition =
-                    normal * 0.5f + right * (offset.x * spread) + up * (offset.y * spread);
-                pip.transform.localScale = Vector3.one * 0.17f;
-                Destroy(pip.GetComponent<Collider>());
-                pip.GetComponent<MeshRenderer>().sharedMaterial = material;
-            }
+            body.isKinematic = false;
+            transform.position = from;
+            transform.rotation = UnityEngine.Random.rotation;
+            body.linearVelocity = velocity;
+            // Without real spin a die slides out and lands on the face it started on, which
+            // looks placed rather than thrown.
+            body.angularVelocity = UnityEngine.Random.insideUnitSphere * 22f;
+            body.WakeUp();
         }
 
-        /// <summary>Turns the die so the given number faces up.</summary>
-        public void SetValue(int value)
+        public void Halt()
         {
-            Value = Mathf.Clamp(value, 1, 6);
-            transform.localRotation = RotationFor(Value);
-        }
-
-        static Quaternion RotationFor(int value)
-        {
-            switch (value)
-            {
-                case 2: return Quaternion.Euler(-90f, 0f, 0f);
-                case 3: return Quaternion.Euler(0f, 0f, 90f);
-                case 4: return Quaternion.Euler(0f, 0f, -90f);
-                case 5: return Quaternion.Euler(90f, 0f, 0f);
-                case 6: return Quaternion.Euler(180f, 0f, 0f);
-                default: return Quaternion.identity;
-            }
+            body.linearVelocity = Vector3.zero;
+            body.angularVelocity = Vector3.zero;
         }
 
         /// <summary>
-        /// Held dice are lifted and lit, because a player has to be able to tell at a glance
-        /// which of the five are coming back for the next roll.
+        /// Lifts a held die out of the throw and parks it, squared up so its number stays
+        /// readable while the others are rolling.
         /// </summary>
-        public void SetHeld(bool held, Color faceColour, Color heldColour)
+        public void Park(Vector3 position)
+        {
+            int showing = Value;
+            body.isKinematic = true;
+            Halt();
+            transform.position = position;
+            transform.rotation = PippedDie.RotationShowing(showing);
+        }
+
+        public void SetHeld(bool held)
         {
             Held = held;
-            body.sharedMaterial = held
-                ? ArcadeMaterials.Emissive(heldColour, 0.45f)
+            shell.sharedMaterial = held
+                ? ArcadeMaterials.Emissive(heldColour, 0.4f)
                 : ArcadeMaterials.Get(faceColour, 0.45f);
-
-            Vector3 p = transform.localPosition;
-            p.y = held ? 0.62f : 0.4f;
-            transform.localPosition = p;
         }
     }
 }

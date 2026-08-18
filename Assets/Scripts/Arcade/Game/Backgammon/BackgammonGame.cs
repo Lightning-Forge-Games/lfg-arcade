@@ -35,6 +35,9 @@ namespace LightningForge.Arcade.Game.Backgammon
         static readonly Color BlackChecker = new Color(0.13f, 0.12f, 0.12f);
         static readonly Color Highlight = new Color(0.30f, 0.75f, 0.50f);
         static readonly Color Selected = new Color(0.90f, 0.72f, 0.25f);
+        static readonly Color DieFace = new Color(0.91f, 0.89f, 0.83f);
+        static readonly Color DiePip = new Color(0.12f, 0.11f, 0.11f);
+        static readonly Color DieSpent = new Color(0.40f, 0.38f, 0.35f);
 
         readonly BackgammonBoard board = new BackgammonBoard();
         readonly List<BackgammonMove> played = new List<BackgammonMove>();
@@ -49,10 +52,14 @@ namespace LightningForge.Arcade.Game.Backgammon
         BoardCameraRig cameraRig;
         Coroutine thinking;
 
+        readonly BackgammonDie[] diceViews = new BackgammonDie[2];
+
         int firstDie;
         int secondDie;
         int selectedPoint = int.MinValue;
         bool rolled;
+        bool awaitingRoll;
+        Coroutine spinning;
 
         public override ArcadeGameId Id => ArcadeGameId.Backgammon;
 
@@ -71,6 +78,8 @@ namespace LightningForge.Arcade.Game.Backgammon
                 }
 
                 string side = board.SideToMove == BackgammonSide.White ? "White" : "Black";
+                if (spinning != null) return side + " rolling...";
+                if (awaitingRoll) return side + " to roll. Click the dice";
                 if (!rolled) return side + " to roll";
 
                 string roll = " rolled " + firstDie + " and " + secondDie;
@@ -127,6 +136,7 @@ namespace LightningForge.Arcade.Game.Backgammon
         public override void End()
         {
             if (thinking != null) { StopCoroutine(thinking); thinking = null; }
+            if (spinning != null) { StopCoroutine(spinning); spinning = null; }
             if (cameraRig != null) cameraRig.ClearFramingOverride();
             if (root != null)
             {
@@ -144,6 +154,7 @@ namespace LightningForge.Arcade.Game.Backgammon
             played.Clear();
             legalTurns.Clear();
             rolled = false;
+            awaitingRoll = false;
             RefreshCheckers();
             Raise();
             BeginTurn();
@@ -160,14 +171,39 @@ namespace LightningForge.Arcade.Game.Backgammon
 
             if (IsFinished) return;
 
-            // The local player rolls for themselves; the opponent rolls when it thinks.
             if (Setup.Mode == GameMode.SinglePlayer && !LocalControls(WhiteToMove))
             {
                 thinking = StartCoroutine(OpponentTurn());
                 return;
             }
 
-            RollFor(dice.Next(1, 7), dice.Next(1, 7));
+            // The player throws for themselves, rather than the roll happening to them.
+            awaitingRoll = true;
+            foreach (BackgammonDie die in diceViews)
+            {
+                if (die != null) die.SetSpent(false);
+            }
+        }
+
+        /// <summary>Throws the dice, once the player asks for it.</summary>
+        void ThrowDice()
+        {
+            if (!awaitingRoll || spinning != null) return;
+            awaitingRoll = false;
+            spinning = StartCoroutine(SpinThenRoll(dice.Next(1, 7), dice.Next(1, 7)));
+        }
+
+        IEnumerator SpinThenRoll(int a, int b)
+        {
+            // Both tumble, offset a little so they do not turn in lockstep.
+            if (diceViews[0] != null) StartCoroutine(diceViews[0].Roll(a, 0f));
+            if (diceViews[1] != null) StartCoroutine(diceViews[1].Roll(b, 0.08f));
+            Raise();
+
+            yield return new WaitForSeconds(0.72f);
+
+            spinning = null;
+            RollFor(a, b);
         }
 
         void RollFor(int a, int b)
@@ -178,6 +214,10 @@ namespace LightningForge.Arcade.Game.Backgammon
 
             legalTurns.Clear();
             legalTurns.AddRange(board.GenerateTurns(a, b));
+
+            if (diceViews[0] != null) diceViews[0].Show(a);
+            if (diceViews[1] != null) diceViews[1].Show(b);
+            RefreshDiceTint();
 
             Raise();
             HighlightMovable();
@@ -202,11 +242,19 @@ namespace LightningForge.Arcade.Game.Backgammon
 
             int a = dice.Next(1, 7);
             int b = dice.Next(1, 7);
+
+            // The opponent throws on screen too, or its turn simply happens with no sign
+            // of where the numbers came from.
+            if (diceViews[0] != null) StartCoroutine(diceViews[0].Roll(a, 0f));
+            if (diceViews[1] != null) StartCoroutine(diceViews[1].Roll(b, 0.08f));
+            yield return new WaitForSeconds(0.72f);
+
             firstDie = a;
             secondDie = b;
             rolled = true;
             legalTurns.Clear();
             legalTurns.AddRange(board.GenerateTurns(a, b));
+            RefreshDiceTint();
             Raise();
 
             List<BackgammonMove> turn = opponent.ChooseTurn(board, a, b, Setup.Difficulty);
@@ -351,15 +399,69 @@ namespace LightningForge.Arcade.Game.Backgammon
 
         void Update()
         {
-            if (root == null || IsFinished || !rolled) return;
-            if (thinking != null) return;
+            if (root == null || IsFinished) return;
+            if (thinking != null || spinning != null) return;
             if (!LocalControls(WhiteToMove)) return;
             if (!WasPressedThisFrame()) return;
+
+            if (awaitingRoll)
+            {
+                // Only the dice throw the dice; clicking the board should not.
+                if (DieUnderPointer() != null) ThrowDice();
+                return;
+            }
+
+            if (!rolled) return;
 
             int point = PointUnderPointer();
             if (point == int.MinValue) return;
 
             HandlePick(point);
+        }
+
+        BackgammonDie DieUnderPointer()
+        {
+            if (targetCamera == null) targetCamera = Camera.main;
+            if (targetCamera == null) return null;
+
+            Vector2 pointer;
+            Mouse mouse = Mouse.current;
+            Touchscreen touch = Touchscreen.current;
+            if (mouse != null) pointer = mouse.position.ReadValue();
+            else if (touch != null) pointer = touch.primaryTouch.position.ReadValue();
+            else return null;
+
+            Ray ray = targetCamera.ScreenPointToRay(pointer);
+            return Physics.Raycast(ray, out RaycastHit hit, 200f)
+                ? hit.collider.GetComponentInParent<BackgammonDie>()
+                : null;
+        }
+
+        /// <summary>
+        /// Dims a die once its number has been played, so what is left to use shows on the
+        /// dice rather than only in the status line. A double is four moves across two
+        /// dice, so they dim at the halfway point and at the end.
+        /// </summary>
+        void RefreshDiceTint()
+        {
+            if (diceViews[0] == null || diceViews[1] == null) return;
+
+            if (firstDie == secondDie)
+            {
+                diceViews[0].SetSpent(played.Count >= 2);
+                diceViews[1].SetSpent(played.Count >= 4);
+                return;
+            }
+
+            bool usedFirst = false;
+            bool usedSecond = false;
+            foreach (BackgammonMove move in played)
+            {
+                if (move.Die == firstDie && !usedFirst) usedFirst = true;
+                else usedSecond = true;
+            }
+            diceViews[0].SetSpent(usedFirst);
+            diceViews[1].SetSpent(usedSecond);
         }
 
         static bool WasPressedThisFrame()
@@ -426,6 +528,7 @@ namespace LightningForge.Arcade.Game.Backgammon
             selectedPoint = int.MinValue;
 
             RefreshCheckers();
+            RefreshDiceTint();
             Raise();
 
             if (TurnComplete()) CompleteTurn();
@@ -448,6 +551,12 @@ namespace LightningForge.Arcade.Game.Backgammon
             AddBox("Rail_Right", new Vector3(7.4f, 0.02f, 0f), new Vector3(0.6f, 0.3f, 11.6f), RailColour);
 
             for (int point = 0; point < BackgammonBoard.Points; point++) BuildPoint(point);
+
+            // In the open middle of the right hand half, where a real roll would land.
+            diceViews[0] = BackgammonDie.Create(root, new Vector3(2.9f, 0.42f, 0f), 0.78f,
+                DieFace, DiePip, DieSpent);
+            diceViews[1] = BackgammonDie.Create(root, new Vector3(4.1f, 0.42f, 0f), 0.78f,
+                DieFace, DiePip, DieSpent);
         }
 
         void BuildPoint(int point)
