@@ -315,6 +315,25 @@ namespace LightningForge.Chess.Core
 
         public Board Clone() => new Board(ToFen());
 
+        /// <summary>
+        /// Finds a legal move by its UCI string, e.g. "e2e4" or "e7e8q". Convenience for
+        /// tests, scripted openings and engine integration; not for hot paths.
+        /// </summary>
+        public bool TryFindMove(string uci, out Move move)
+        {
+            foreach (Move candidate in MoveGenerator.GenerateLegalMoves(this))
+            {
+                if (candidate.ToUci() == uci)
+                {
+                    move = candidate;
+                    return true;
+                }
+            }
+
+            move = Move.None;
+            return false;
+        }
+
         public override string ToString()
         {
             var sb = new StringBuilder();
