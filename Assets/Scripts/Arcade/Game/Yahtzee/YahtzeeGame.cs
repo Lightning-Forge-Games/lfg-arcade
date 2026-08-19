@@ -38,6 +38,9 @@ namespace LightningForge.Arcade.Game.Yahtzee
         /// <summary>How high the cup rides while it is being carried.</summary>
         const float CarryHeight = 1.15f;
 
+        /// <summary>Unity's built in layer 2, which the default raycast mask excludes.</summary>
+        const int IgnoreRaycastLayer = 2;
+
         static readonly Color TrayFelt = new Color(0.11f, 0.19f, 0.14f);
         static readonly Color TrayWall = new Color(0.22f, 0.14f, 0.09f);
         static readonly Color CupColour = new Color(0.26f, 0.16f, 0.10f);
@@ -804,6 +807,12 @@ namespace LightningForge.Arcade.Game.Yahtzee
             var go = new GameObject(name);
             go.transform.SetParent(root, false);
             go.transform.localPosition = localPosition;
+
+            // Unity's built in Ignore Raycast layer. These walls are taller than everything
+            // else and stand between the camera and the table, so while they are raycastable
+            // they swallow every click meant for the cup or a die. The layer only affects
+            // queries: the collision matrix is untouched, so dice still bounce off them.
+            go.layer = IgnoreRaycastLayer;
             go.AddComponent<BoxCollider>().size = size;
         }
 
