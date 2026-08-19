@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 namespace LightningForge.Arcade.Game.Yahtzee
@@ -153,6 +154,20 @@ namespace LightningForge.Arcade.Game.Yahtzee
             SetPipsVisible(true);
         }
 
+        /// <summary>
+        /// Freezes the die exactly as it came to rest, without squaring it up.
+        ///
+        /// Zeroing its velocity is not enough on its own. A die that has come down on top
+        /// of another is often in an unstable balance, and the solver goes on resolving it
+        /// after the motion has stopped, so the die topples and the number read off it a
+        /// moment earlier is no longer the one facing up.
+        /// </summary>
+        public void Rest()
+        {
+            Halt();
+            body.isKinematic = true;
+        }
+
         public void Halt()
         {
             body.linearVelocity = Vector3.zero;
@@ -221,6 +236,40 @@ namespace LightningForge.Arcade.Game.Yahtzee
 
             Park(position);
             transform.rotation = trayRotation;
+        }
+
+        /// <summary>
+        /// Eases the die onto a resting place and a face from wherever it happens to be.
+        ///
+        /// This is for a throw that really happened on the opponent's machine. The die is
+        /// thrown here too, so there is something to watch, but the numbers it lands on are
+        /// not up to this copy of the game and it has to be walked onto the right ones.
+        /// </summary>
+        public IEnumerator GlideTo(Vector3 position, int showing, float duration)
+        {
+            OnRail = false;
+            Reveal();
+            transform.SetParent(Home, true);
+            body.isKinematic = true;
+            Halt();
+
+            Vector3 fromPosition = transform.position;
+            Quaternion fromRotation = transform.rotation;
+            Quaternion toRotation = PippedDie.RotationShowing(showing);
+
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                float eased = t * t * (3f - 2f * t);
+                transform.position = Vector3.Lerp(fromPosition, position, eased);
+                transform.rotation = Quaternion.Slerp(fromRotation, toRotation, eased);
+                yield return null;
+            }
+
+            transform.position = position;
+            transform.rotation = toRotation;
         }
 
         /// <summary>Where this die was lying before it was lifted.</summary>

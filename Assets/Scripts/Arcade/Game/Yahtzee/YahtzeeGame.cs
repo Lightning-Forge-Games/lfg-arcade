@@ -71,6 +71,17 @@ namespace LightningForge.Arcade.Game.Yahtzee
         /// <summary>The dice waiting in the cup, loaded when a roll begins.</summary>
         readonly List<YahtzeeDie> loaded = new List<YahtzeeDie>();
 
+        /// <summary>
+        /// The opponent's messages waiting to be played out, in the order they arrived.
+        ///
+        /// A turn arrives as several of them now and each one takes time to watch, so they
+        /// cannot simply be applied as they land: a keep arriving while the dice are still
+        /// in the air would move them mid pour.
+        /// </summary>
+        readonly Queue<YahtzeeMessage> remote = new Queue<YahtzeeMessage>();
+        Coroutine pump;
+        Coroutine remoteSwirl;
+
         bool cupHeld;
         bool countedThisRoll;
         Vector3 cupTarget;
@@ -130,6 +141,10 @@ namespace LightningForge.Arcade.Game.Yahtzee
 
         protected override void OnBegin()
         {
+            // Play Again goes straight here rather than through End, and the table is about
+            // to be rebuilt underneath anything still animating against the old one.
+            StopWork();
+
             opponent = new YahtzeePlayer(new System.Random());
 
             cards[0].Reset();
@@ -184,6 +199,9 @@ namespace LightningForge.Arcade.Game.Yahtzee
         {
             if (thinking != null) { StopCoroutine(thinking); thinking = null; }
             if (rolling != null) { StopCoroutine(rolling); rolling = null; }
+            if (pump != null) { StopCoroutine(pump); pump = null; }
+            StopIdleSwirl();
+            remote.Clear();
             if (rattleSource != null) rattleSource.Stop();
             cupHeld = false;
             loaded.Clear();
@@ -217,6 +235,13 @@ namespace LightningForge.Arcade.Game.Yahtzee
         {
             if (!CanRoll()) return;
             LoadCup();
+
+            // Sent before the throw rather than after it. What the dice land on is not
+            // known until they stop, so the opponent cannot be told the outcome yet, but
+            // they can be shown the cup going up right now instead of watching a still
+            // table for the two seconds a roll takes.
+            if (ShouldRelay) RaiseMovePlayed(YahtzeeWire.CupLifted());
+
             rolling = StartCoroutine(RollRoutine());
         }
 
@@ -331,10 +356,14 @@ namespace LightningForge.Arcade.Game.Yahtzee
                 yield return new WaitForSeconds(0.08f);
             }
 
-            foreach (YahtzeeDie die in loose) die.Halt();
+            // Frozen before they are read, not merely stopped. Whatever they are showing
+            // now is the roll, and nothing is allowed to change it afterwards.
+            foreach (YahtzeeDie die in loose) die.Rest();
 
             // The dice are the source of truth: read what they are actually showing.
             for (int i = 0; i < DiceCount && i < dieViews.Count; i++) dice[i] = dieViews[i].Value;
+
+            if (ShouldRelay) RelayThrow();
 
             loaded.Clear();
             rolling = null;
@@ -426,16 +455,49 @@ namespace LightningForge.Arcade.Game.Yahtzee
             cup.rotation = toRotation;
         }
 
+        /// <summary>
+        /// Whether what the local player is doing needs telling the opponent about.
+        ///
+        /// Whose turn it is matters as well as the mode: everything that relays runs on the
+        /// player doing it, so a message going out while the other seat is live would be
+        /// this client narrating a turn it is not taking. That is also what keeps the
+        /// computer opponent and the hot seat silent.
+        /// </summary>
+        bool ShouldRelay => Setup.Mode == GameMode.Online && LocalControls(FirstSeatToPlay);
+
+        /// <summary>
+        /// Tells the opponent where the dice came to rest and what they are showing.
+        ///
+        /// Both, because neither can be worked out from the other. PhysX is not
+        /// deterministic across platforms, so a throw replayed on the other machine would
+        /// scatter differently and land on different numbers. The thrower's tray is the
+        /// real one and the other end is told the outcome.
+        /// </summary>
+        void RelayThrow()
+        {
+            var landed = new YahtzeeLandedDie[DiceCount];
+            for (int i = 0; i < DiceCount; i++)
+            {
+                Vector3 at = i < dieViews.Count ? dieViews[i].transform.position : Vector3.zero;
+                landed[i] = new YahtzeeLandedDie { X = at.x, Z = at.z, Value = dice[i] };
+            }
+            RaiseMovePlayed(YahtzeeWire.Thrown(landed));
+        }
+
+        void RelayKeeps()
+        {
+            var held = new bool[DiceCount];
+            for (int i = 0; i < DiceCount && i < dieViews.Count; i++) held[i] = dieViews[i].Held;
+            RaiseMovePlayed(YahtzeeWire.Kept(held));
+        }
+
         void Score(YahtzeeCategory category, bool local)
         {
             if (!cards[seat].Fill(category, dice)) return;
 
-            if (local)
+            if (local && Setup.Mode == GameMode.Online)
             {
-                var sb = new System.Text.StringBuilder();
-                sb.Append((int)category).Append(':');
-                foreach (int die in dice) sb.Append(die);
-                RaiseMovePlayed(sb.ToString());
+                RaiseMovePlayed(YahtzeeWire.Scored(category, dice));
             }
 
             seat = 1 - seat;
@@ -443,37 +505,257 @@ namespace LightningForge.Arcade.Game.Yahtzee
             BeginTurn();
         }
 
+        /// <summary>
+        /// Takes one message from the opponent and lines it up to be played out.
+        ///
+        /// A turn used to arrive as a single message at the moment a box was filled, which
+        /// meant the other player watched a still table and then saw the result appear.
+        /// It now arrives as four kinds of message covering the whole turn, so the table
+        /// moves while the opponent is playing rather than only after they have finished.
+        /// </summary>
         public override bool ApplyRemoteMove(string encoded)
         {
-            if (rolling != null) return false;
+            if (!YahtzeeWire.TryParse(encoded, out YahtzeeMessage message)) return false;
 
-            int colon = encoded.IndexOf(':');
-            if (colon <= 0) return false;
-            if (!int.TryParse(encoded.Substring(0, colon), out int categoryIndex)) return false;
+            remote.Enqueue(message);
+            if (pump == null) pump = StartCoroutine(PlayRemote());
+            return true;
+        }
 
-            string faces = encoded.Substring(colon + 1);
-            if (faces.Length != DiceCount) return false;
-
-            for (int i = 0; i < DiceCount; i++)
+        IEnumerator PlayRemote()
+        {
+            while (remote.Count > 0)
             {
-                if (!int.TryParse(faces[i].ToString(), out int face)) return false;
-                dice[i] = face;
+                YahtzeeMessage message = remote.Dequeue();
+                switch (message.Kind)
+                {
+                    case YahtzeeMessageKind.CupLifted:
+                        yield return RemoteLift();
+                        break;
+
+                    case YahtzeeMessageKind.Thrown:
+                        // Borrowing the local roll's flag, because it means exactly the same
+                        // thing here: the table is mid throw and nothing else may touch it.
+                        rolling = StartCoroutine(RemoteThrow(message.Landed));
+                        while (rolling != null) yield return null;
+                        break;
+
+                    case YahtzeeMessageKind.Kept:
+                        RemoteKeep(message.Held);
+                        break;
+
+                    case YahtzeeMessageKind.Scored:
+                        RemoteScore(message.Category, message.Dice);
+                        break;
+                }
+            }
+            pump = null;
+        }
+
+        /// <summary>
+        /// The opponent has picked the cup up.
+        ///
+        /// Their swirling is not streamed. It is a pointer moving every frame, and an RPC a
+        /// frame to animate a cup would cost more than the rest of the game put together
+        /// for something nobody is reading precisely. What matters is that the table is
+        /// visibly busy, so the cup goes up and shakes on its own until the throw arrives.
+        /// </summary>
+        IEnumerator RemoteLift()
+        {
+            LoadCup();
+
+            if (rattleSource != null)
+            {
+                rattleSource.volume = 0.55f;
+                rattleSource.pitch = 1f;
+                rattleSource.Play();
             }
 
-            // The opponent's throw happened on their table. Rolling here would produce
-            // different numbers, so the dice are placed showing what they actually rolled.
-            for (int i = 0; i < DiceCount && i < dieViews.Count; i++)
-            {
-                dieViews[i].Park(DieRestPosition(i));
-                dieViews[i].Park(DieRestPosition(i));
-            }
-            ShowParkedDice();
+            Vector3 over = TrayCentre() + new Vector3(0f, CarryHeight, 0f);
+            yield return MoveCup(cup.position, over, cup.rotation, Quaternion.identity, 0.3f);
 
-            var category = (YahtzeeCategory)categoryIndex;
-            if (cards[seat].IsFilled(category)) return false;
+            StopIdleSwirl();
+            remoteSwirl = StartCoroutine(IdleSwirl(over));
+        }
+
+        /// <summary>A cup being shaken, until the throw comes.</summary>
+        IEnumerator IdleSwirl(Vector3 centre)
+        {
+            float t = 0f;
+            while (true)
+            {
+                t += Time.deltaTime;
+                cup.position = centre + new Vector3(
+                    Mathf.Sin(t * 5.4f) * 0.34f, 0f, Mathf.Cos(t * 4.1f) * 0.26f);
+                cup.rotation = Quaternion.Euler(
+                    Mathf.Sin(t * 4.1f) * 13f, 0f, Mathf.Sin(t * 5.4f) * -13f);
+                yield return null;
+            }
+        }
+
+        void StopIdleSwirl()
+        {
+            if (remoteSwirl == null) return;
+            StopCoroutine(remoteSwirl);
+            remoteSwirl = null;
+        }
+
+        /// <summary>The opponent's throw, poured out here and landed on their numbers.</summary>
+        IEnumerator RemoteThrow(YahtzeeLandedDie[] landed)
+        {
+            // A throw made with the Roll button arrives with no lift in front of it.
+            if (remoteSwirl == null) yield return RemoteLift();
+            StopIdleSwirl();
+            if (rattleSource != null) rattleSource.Stop();
+
+            rollsUsed = Mathf.Min(rollsUsed + 1, RollsPerTurn);
+            rolledThisTurn = true;
+            Raise();
+            RefreshCard();
+
+            var loose = new List<YahtzeeDie>(loaded);
+
+            Quaternion upright = cup.rotation;
+            Quaternion tipped = Quaternion.Euler(0f, 0f, -128f);
+            float duration = 0.4f;
+            float elapsed = 0f;
+            int released = 0;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                cup.rotation = Quaternion.Slerp(upright, tipped, t * t);
+
+                int shouldHaveReleased =
+                    Mathf.FloorToInt(Mathf.InverseLerp(0.2f, 0.8f, t) * loose.Count);
+                while (released < shouldHaveReleased && released < loose.Count)
+                {
+                    Release(loose[released]);
+                    released++;
+                }
+                yield return null;
+            }
+
+            while (released < loose.Count)
+            {
+                Release(loose[released]);
+                released++;
+            }
+
+            yield return MoveCup(cup.position, CupRest(), cup.rotation, Quaternion.identity, 0.32f);
+
+            loaded.Clear();
+            yield return LandOn(loose, landed);
+
+            rolling = null;
+        }
+
+        /// <summary>
+        /// Lets the opponent's dice tumble for as long as they still look like they are
+        /// tumbling, then eases them onto the places and numbers they landed on over there.
+        ///
+        /// The alternative is letting them come fully to rest on whatever the local physics
+        /// decides and correcting afterwards, which is the same repositioning done a second
+        /// later and in plain view. Catching them while they are still slowing hides it in
+        /// the motion they already have.
+        /// </summary>
+        IEnumerator LandOn(List<YahtzeeDie> loose, YahtzeeLandedDie[] landed)
+        {
+            float deadline = Time.time + 1.6f;
+            yield return new WaitForSeconds(0.45f);
+            while (Time.time < deadline)
+            {
+                bool moving = false;
+                foreach (YahtzeeDie die in loose)
+                {
+                    if (!die.IsAtRest) { moving = true; break; }
+                }
+                if (!moving) break;
+                yield return new WaitForSeconds(0.08f);
+            }
+
+            var glides = new List<Coroutine>();
+            for (int i = 0; i < DiceCount && i < dieViews.Count && i < landed.Length; i++)
+            {
+                dice[i] = landed[i].Value;
+
+                // A kept die never left the rail, and its relayed position is where it is
+                // sitting over there rather than anywhere in the tray.
+                if (dieViews[i].Held) continue;
+
+                var to = new Vector3(landed[i].X, YahtzeeDie.Size * 0.5f, landed[i].Z);
+                glides.Add(StartCoroutine(dieViews[i].GlideTo(to, landed[i].Value, 0.28f)));
+            }
+            foreach (Coroutine glide in glides) yield return glide;
+
+            Raise();
+            RefreshCard();
+        }
+
+        void RemoteKeep(bool[] held)
+        {
+            for (int i = 0; i < DiceCount && i < dieViews.Count && i < held.Length; i++)
+            {
+                dieViews[i].SetHeld(held[i]);
+            }
+            LiftHeldDice();
+            Raise();
+        }
+
+        void RemoteScore(YahtzeeCategory category, int[] values)
+        {
+            for (int i = 0; i < DiceCount && i < values.Length && i < dieViews.Count; i++)
+            {
+                dice[i] = values[i];
+
+                // The throw already put this die on this number in almost every case, and
+                // re-posing it would tidy away the scatter the player just watched land.
+                // Only a die showing something else is worth touching.
+                if (dieViews[i].Value == values[i]) continue;
+                dieViews[i].Park(dieViews[i].transform.position);
+                dieViews[i].transform.rotation = PippedDie.RotationShowing(values[i]);
+            }
+
+            if (cards[seat].IsFilled(category))
+            {
+                // Both sides run the same card, so a box that is already full here means
+                // the two games have drifted apart. Worth saying out loud.
+                Debug.LogError("YahtzeeGame: the opponent filled " + category
+                    + ", which is already taken here. Local state: " + DebugState);
+                return;
+            }
 
             Score(category, false);
-            return true;
+        }
+
+        /// <summary>
+        /// The opponent has gone and this client has both seats back.
+        ///
+        /// Anything of theirs still playing out has to be put down first. A throw is stopped
+        /// halfway otherwise, and the dice spend that half inside the cup with their
+        /// renderers off, so the player inherits a table with no dice on it.
+        /// </summary>
+        public override void ReleaseOnlineSide()
+        {
+            base.ReleaseOnlineSide();
+
+            if (pump != null) { StopCoroutine(pump); pump = null; }
+            if (rolling != null) { StopCoroutine(rolling); rolling = null; }
+            StopIdleSwirl();
+            remote.Clear();
+            loaded.Clear();
+
+            if (rattleSource != null) rattleSource.Stop();
+            if (cup != null)
+            {
+                cup.position = CupRest();
+                cup.rotation = Quaternion.identity;
+            }
+
+            ShowParkedDice();
+            Raise();
+            RefreshCard();
         }
 
         /// <summary>Places every die flat, showing the value recorded for it.</summary>
@@ -618,6 +900,7 @@ namespace LightningForge.Arcade.Game.Yahtzee
 
             die.SetHeld(!die.Held);
             LiftHeldDice();
+            if (ShouldRelay) RelayKeeps();
             Raise();
         }
 
@@ -640,6 +923,8 @@ namespace LightningForge.Arcade.Game.Yahtzee
                 rattleSource.volume = 0f;
                 rattleSource.Play();
             }
+
+            if (ShouldRelay) RaiseMovePlayed(YahtzeeWire.CupLifted());
             Raise();
         }
 
