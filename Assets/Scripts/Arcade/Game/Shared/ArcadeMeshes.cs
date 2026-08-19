@@ -144,9 +144,14 @@ namespace LightningForge.Arcade.Game
         }
 
         /// <summary>
-        /// An open topped tube: an outer wall, an inner wall, a rim joining them and a solid
-        /// base. Used for the dice cup, where a solid cylinder reads as a mug and the gap
-        /// down the middle is what makes it look like something dice come out of.
+        /// An open topped vessel: a floor, an inner wall, a rim, an outer wall and a base.
+        /// Used for the dice cup, where a solid cylinder reads as a mug and the opening is
+        /// what makes it look like something dice come out of.
+        ///
+        /// Revolved from a profile rather than wound by hand. The hand written version had
+        /// both walls facing the wrong way, which is invisible from one side and obvious
+        /// from the other, and is exactly the sort of thing a profile does not let you get
+        /// wrong.
         /// </summary>
         public static Mesh Tube(float outerRadius, float innerRadius, float height, int segments = 40)
         {
@@ -154,72 +159,34 @@ namespace LightningForge.Arcade.Game
             string key = "tube" + outerRadius + innerRadius + height + segments;
             if (Cache.TryGetValue(key, out Mesh cached) && cached != null) return cached;
 
-            var vertices = new List<Vector3>();
-            var normals = new List<Vector3>();
-            var triangles = new List<int>();
-
             float top = height * 0.5f;
             float bottom = -height * 0.5f;
-            float floor = bottom + Mathf.Min(height * 0.14f, 0.06f);
+            float floor = bottom + Mathf.Min(height * 0.2f, 0.09f);
 
-            for (int i = 0; i <= segments; i++)
+            // Traced as a cross section, from the middle of the base, up the outside, over
+            // the rim, down the inside and back to the middle of the floor. Points repeat
+            // where the surface turns a corner, so each side keeps its own normal and the
+            // edge stays crisp.
+            var profile = new List<(Vector2 point, Vector2 normal)>
             {
-                float angle = i / (float)segments * Mathf.PI * 2f;
-                var outward = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+                (new Vector2(0f, bottom), new Vector2(0f, -1f)),
+                (new Vector2(outerRadius, bottom), new Vector2(0f, -1f)),
 
-                // Outer wall, normals pointing out.
-                vertices.Add(outward * outerRadius + Vector3.up * top);
-                normals.Add(outward);
-                vertices.Add(outward * outerRadius + Vector3.up * bottom);
-                normals.Add(outward);
+                (new Vector2(outerRadius, bottom), new Vector2(1f, 0f)),
+                (new Vector2(outerRadius, top), new Vector2(1f, 0f)),
 
-                // Inner wall, normals pointing in.
-                vertices.Add(outward * innerRadius + Vector3.up * top);
-                normals.Add(-outward);
-                vertices.Add(outward * innerRadius + Vector3.up * floor);
-                normals.Add(-outward);
+                (new Vector2(outerRadius, top), new Vector2(0f, 1f)),
+                (new Vector2(innerRadius, top), new Vector2(0f, 1f)),
 
-                // The rim, and the floor inside.
-                vertices.Add(outward * outerRadius + Vector3.up * top);
-                normals.Add(Vector3.up);
-                vertices.Add(outward * innerRadius + Vector3.up * top);
-                normals.Add(Vector3.up);
-                vertices.Add(outward * innerRadius + Vector3.up * floor);
-                normals.Add(Vector3.up);
+                (new Vector2(innerRadius, top), new Vector2(-1f, 0f)),
+                (new Vector2(innerRadius, floor), new Vector2(-1f, 0f)),
 
-                // The underside.
-                vertices.Add(outward * outerRadius + Vector3.up * bottom);
-                normals.Add(Vector3.down);
-            }
+                (new Vector2(innerRadius, floor), new Vector2(0f, 1f)),
+                (new Vector2(0f, floor), new Vector2(0f, 1f)),
+            };
 
-            const int ring = 8;
-            int centreFloor = vertices.Count;
-            vertices.Add(Vector3.up * floor);
-            normals.Add(Vector3.up);
-            int centreBottom = vertices.Count;
-            vertices.Add(Vector3.up * bottom);
-            normals.Add(Vector3.down);
-
-            for (int i = 0; i < segments; i++)
-            {
-                int a = i * ring;
-                int b = (i + 1) * ring;
-
-                Quad(triangles, a + 0, a + 1, b + 0, b + 1);       // outer wall
-                Quad(triangles, b + 2, b + 3, a + 2, a + 3);       // inner wall
-                Quad(triangles, a + 4, a + 5, b + 4, b + 5);       // rim
-
-                // Floor inside and the flat underside.
-                triangles.Add(a + 6); triangles.Add(centreFloor); triangles.Add(b + 6);
-                triangles.Add(b + 7); triangles.Add(centreBottom); triangles.Add(a + 7);
-            }
-
-            var mesh = new Mesh { name = "Tube" };
-            mesh.SetVertices(vertices);
-            mesh.SetNormals(normals);
-            mesh.SetTriangles(triangles, 0);
-            mesh.RecalculateBounds();
-
+            Mesh mesh = Lathe(profile, segments);
+            mesh.name = "Tube";
             Cache[key] = mesh;
             return mesh;
         }
@@ -315,12 +282,46 @@ namespace LightningForge.Arcade.Game
                 }
             }
 
+            // Whether a profile comes out facing in or out depends on which way round it
+            // was traced, and getting it wrong is invisible from one side and obvious from
+            // the other. Rather than require every caller to trace in the same direction,
+            // measure one triangle against the normal it is supposed to have and turn the
+            // whole thing round if they disagree.
+            if (Facing(vertices, normals, triangles) < 0f) triangles.Reverse();
+
             var mesh = new Mesh();
             mesh.SetVertices(vertices);
             mesh.SetNormals(normals);
             mesh.SetTriangles(triangles, 0);
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        /// <summary>
+        /// How well the wound triangles agree with the normals they were given. Positive
+        /// means the surface faces the way it says it does.
+        ///
+        /// Sampled across several triangles rather than one, because a lathe profile has
+        /// degenerate slivers wherever it turns a corner, and a single sliver is not
+        /// evidence of anything.
+        /// </summary>
+        static float Facing(List<Vector3> vertices, List<Vector3> normals, List<int> triangles)
+        {
+            float total = 0f;
+            for (int i = 0; i + 2 < triangles.Count; i += 3)
+            {
+                Vector3 a = vertices[triangles[i]];
+                Vector3 b = vertices[triangles[i + 1]];
+                Vector3 c = vertices[triangles[i + 2]];
+
+                Vector3 geometric = Vector3.Cross(b - a, c - a);
+                if (geometric.sqrMagnitude < 1e-10f) continue;
+
+                Vector3 expected = normals[triangles[i]] + normals[triangles[i + 1]]
+                    + normals[triangles[i + 2]];
+                total += Vector3.Dot(geometric.normalized, expected.normalized);
+            }
+            return total;
         }
 
         /// <summary>

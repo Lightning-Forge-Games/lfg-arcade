@@ -35,6 +35,9 @@ namespace LightningForge.Arcade.Game.Yahtzee
         const float CupRadius = 0.38f;
         const float CupHeight = 0.92f;
 
+        /// <summary>How high the cup rides while it is being carried.</summary>
+        const float CarryHeight = 1.15f;
+
         static readonly Color TrayFelt = new Color(0.11f, 0.19f, 0.14f);
         static readonly Color TrayWall = new Color(0.22f, 0.14f, 0.09f);
         static readonly Color CupColour = new Color(0.26f, 0.16f, 0.10f);
@@ -282,7 +285,7 @@ namespace LightningForge.Arcade.Game.Yahtzee
                 int shouldHaveReleased = Mathf.FloorToInt(Mathf.InverseLerp(0.25f, 0.85f, t) * loose.Count);
                 while (released < shouldHaveReleased && released < loose.Count)
                 {
-                    Vector3 mouth = cup.position + cup.up * 0.42f;
+                    Vector3 mouth = cup.position + cup.up * (CupHeight * 0.72f);
                     Vector3 velocity = new Vector3(1.5f, -1.4f, 0f)
                         + new Vector3(Random.Range(-0.4f, 0.4f), 0f, Random.Range(-0.9f, 0.9f));
                     loose[released].Throw(mouth, velocity);
@@ -294,7 +297,8 @@ namespace LightningForge.Arcade.Game.Yahtzee
             // Anything the loop did not get to.
             while (released < loose.Count)
             {
-                loose[released].Throw(cup.position + cup.up * 0.42f, new Vector3(1.5f, -1.4f, 0f));
+                loose[released].Throw(cup.position + cup.up * (CupHeight * 0.72f),
+                    new Vector3(1.5f, -1.4f, 0f));
                 released++;
             }
 
@@ -339,6 +343,15 @@ namespace LightningForge.Arcade.Game.Yahtzee
         {
             var loose = new List<YahtzeeDie>(loaded);
 
+            // Last guard against pouring outside the tray. The pointer is clamped while
+            // swirling, but nothing else guarantees where the cup ended up.
+            Vector3 centre = TrayCentre();
+            Vector3 safe = cup.position;
+            safe.x = Mathf.Clamp(safe.x, centre.x - TrayWidth * 0.35f, centre.x + TrayWidth * 0.35f);
+            safe.z = Mathf.Clamp(safe.z, centre.z - TrayDepth * 0.35f, centre.z + TrayDepth * 0.35f);
+            safe.y = Mathf.Max(safe.y, CarryHeight);
+            cup.position = safe;
+
             Quaternion upright = cup.rotation;
             Quaternion tipped = Quaternion.Euler(0f, 0f, -128f);
             float duration = 0.4f;
@@ -373,7 +386,9 @@ namespace LightningForge.Arcade.Game.Yahtzee
 
         void Release(YahtzeeDie die)
         {
-            Vector3 mouth = cup.position + cup.up * (CupHeight * 0.45f);
+            // Clear of the rim. Half the cup's height is exactly the rim, so anything less
+            // than that spawns the die inside the vessel it is meant to be leaving.
+            Vector3 mouth = cup.position + cup.up * (CupHeight * 0.72f);
             Vector3 velocity = cup.up * -1.4f
                 + new Vector3(Random.Range(-0.5f, 0.5f), -0.5f, Random.Range(-0.5f, 0.5f));
             die.Throw(mouth, velocity);
@@ -544,8 +559,14 @@ namespace LightningForge.Arcade.Game.Yahtzee
         {
             LoadCup();
             cupHeld = true;
-            cupTarget = cup.position + Vector3.up * 1.1f;
-            lastCupPosition = cup.position;
+
+            // Straight over the tray, not merely lifted from where it was resting. The cup
+            // sits beside the tray, so a player who picks it up and clicks again without
+            // moving the mouse would otherwise tip five dice onto the floor.
+            Vector3 over = TrayCentre() + new Vector3(0f, CarryHeight, 0f);
+            cup.position = over;
+            cupTarget = over;
+            lastCupPosition = over;
             swirl = 0f;
 
             if (rattleSource != null)
@@ -575,7 +596,7 @@ namespace LightningForge.Arcade.Game.Yahtzee
 
             // Move on a plane at the height the cup is carried at.
             Ray ray = targetCamera.ScreenPointToRay(pointer);
-            var plane = new Plane(Vector3.up, new Vector3(0f, 1.15f, 0f));
+            var plane = new Plane(Vector3.up, new Vector3(0f, CarryHeight, 0f));
             if (plane.Raycast(ray, out float distance))
             {
                 Vector3 wanted = ray.GetPoint(distance);
@@ -583,7 +604,7 @@ namespace LightningForge.Arcade.Game.Yahtzee
                 Vector3 centre = TrayCentre();
                 wanted.x = Mathf.Clamp(wanted.x, centre.x - TrayWidth * 0.4f, centre.x + TrayWidth * 0.4f);
                 wanted.z = Mathf.Clamp(wanted.z, centre.z - TrayDepth * 0.4f, centre.z + TrayDepth * 0.4f);
-                wanted.y = 1.15f;
+                wanted.y = CarryHeight;
                 cupTarget = wanted;
             }
 
@@ -766,6 +787,12 @@ namespace LightningForge.Arcade.Game.Yahtzee
             picker.radius = CupRadius;
             picker.height = CupHeight;
             picker.direction = 1;
+
+            // A trigger, not a solid body. This exists only so the cup can be clicked, and
+            // raycasts still find triggers; leaving it solid means a die released at the
+            // mouth is overlapping it the instant it stops being kinematic, and the solver
+            // ejects it whichever way is cheapest, which is often out through the base.
+            picker.isTrigger = true;
 
             // Loud enough to hear over the dice, quiet enough not to be the whole scene.
             rattleSource = ArcadeAudio.AddSource(cup.gameObject, ArcadeAudio.Rattle(), true);
