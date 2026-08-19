@@ -197,6 +197,10 @@ namespace LightningForge.Arcade.Game.Yahtzee
             rolledThisTurn = false;
             foreach (YahtzeeDie die in dieViews) die.SetHeld(false);
 
+            // Nothing is kept at the start of a turn, so anything still up on the rail from
+            // the last one comes back down.
+            LiftHeldDice();
+
             Raise();
             RefreshCard();
 
@@ -512,16 +516,75 @@ namespace LightningForge.Arcade.Game.Yahtzee
         /// Held dice are lifted onto the rail at the back of the tray, out of the way of the
         /// next throw. That is also what stops a thrown die knocking a kept one over.
         /// </summary>
+        /// <summary>
+        /// Moves dice between the tray and the rail to match what is being kept.
+        ///
+        /// Both directions, because keeping a die and then changing your mind about it is
+        /// perfectly ordinary, and a die that goes up but never comes back leaves the rail
+        /// disagreeing with the game about what is being kept.
+        /// </summary>
         void LiftHeldDice()
         {
             int slot = 0;
-            for (int i = 0; i < dieViews.Count; i++)
+            foreach (YahtzeeDie die in dieViews)
             {
-                if (!dieViews[i].Held) continue;
-                int showing = dieViews[i].Value;
-                dieViews[i].Park(RailPosition(slot++));
-                dieViews[i].transform.rotation = PippedDie.RotationShowing(showing);
+                if (die.Held) die.LiftToRail(RailPosition(slot++));
             }
+
+            foreach (YahtzeeDie die in dieViews)
+            {
+                if (die.Held || !die.OnRail) continue;
+                // A later roll may have dropped a die where this one was lying, so it goes
+                // back near its old place rather than exactly on top of whatever is there.
+                die.ReturnToTray(FreeTraySpot(die.TrayPosition, die));
+            }
+        }
+
+        /// <summary>
+        /// The wanted spot if nothing is in it, otherwise the nearest clear one, searched
+        /// outwards. Dice are kinematic while they sit in the tray, so an overlap would
+        /// simply stay overlapping rather than being pushed apart.
+        /// </summary>
+        Vector3 FreeTraySpot(Vector3 wanted, YahtzeeDie ignore)
+        {
+            Vector3 centre = TrayCentre();
+            float halfW = TrayWidth * 0.5f - YahtzeeDie.Size;
+            float halfD = TrayDepth * 0.5f - YahtzeeDie.Size;
+
+            wanted.x = Mathf.Clamp(wanted.x, centre.x - halfW, centre.x + halfW);
+            wanted.z = Mathf.Clamp(wanted.z, centre.z - halfD, centre.z + halfD);
+            wanted.y = YahtzeeDie.Size * 0.6f;
+
+            if (IsClear(wanted, ignore)) return wanted;
+
+            for (float radius = YahtzeeDie.Size; radius < TrayWidth * 0.5f; radius += YahtzeeDie.Size * 0.8f)
+            {
+                for (int step = 0; step < 8; step++)
+                {
+                    float angle = step / 8f * Mathf.PI * 2f;
+                    Vector3 candidate = wanted
+                        + new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+
+                    candidate.x = Mathf.Clamp(candidate.x, centre.x - halfW, centre.x + halfW);
+                    candidate.z = Mathf.Clamp(candidate.z, centre.z - halfD, centre.z + halfD);
+                    if (IsClear(candidate, ignore)) return candidate;
+                }
+            }
+            return wanted;
+        }
+
+        bool IsClear(Vector3 position, YahtzeeDie ignore)
+        {
+            foreach (YahtzeeDie die in dieViews)
+            {
+                if (die == ignore || die.OnRail) continue;
+                if ((die.transform.position - position).sqrMagnitude
+                    < YahtzeeDie.Size * YahtzeeDie.Size * 1.6f)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         // Input ---------------------------------------------------------------------

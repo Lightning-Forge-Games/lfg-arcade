@@ -31,6 +31,11 @@ namespace LightningForge.Arcade.Game.Yahtzee
         Rigidbody body;
         MeshRenderer shell;
         float lastImpact;
+        /// <summary>True while the die is up on the rail rather than down in the tray.</summary>
+        public bool OnRail { get; private set; }
+
+        Vector3 trayPosition;
+        Quaternion trayRotation;
         Color faceColour;
         Color heldColour;
 
@@ -97,6 +102,8 @@ namespace LightningForge.Arcade.Game.Yahtzee
         /// <summary>Throws the die from a point, with enough spin to tumble properly.</summary>
         public void Throw(Vector3 from, Vector3 velocity)
         {
+            // A thrown die is loose in the tray again, whatever it was doing before.
+            OnRail = false;
             Reveal();
             transform.SetParent(Home, true);
             body.isKinematic = false;
@@ -183,6 +190,41 @@ namespace LightningForge.Arcade.Game.Yahtzee
             lastImpact = Time.time;
             Struck?.Invoke(force);
         }
+
+        /// <summary>
+        /// Lifts the die out of the tray onto the rail, remembering exactly where and how
+        /// it was lying so that changing your mind can put it back the way it landed.
+        /// </summary>
+        public void LiftToRail(Vector3 railPosition)
+        {
+            if (!OnRail)
+            {
+                trayPosition = transform.position;
+                trayRotation = transform.rotation;
+                OnRail = true;
+            }
+
+            int showing = Value;
+            Park(railPosition);
+            // Squared up on the rail, so a row of kept dice is easy to read at a glance.
+            transform.rotation = PippedDie.RotationShowing(showing);
+        }
+
+        /// <summary>
+        /// Puts the die back down where it was, at the angle it came to rest at. Returning
+        /// it squared up would look like it had been rerolled rather than un-kept.
+        /// </summary>
+        public void ReturnToTray(Vector3 position)
+        {
+            if (!OnRail) return;
+            OnRail = false;
+
+            Park(position);
+            transform.rotation = trayRotation;
+        }
+
+        /// <summary>Where this die was lying before it was lifted.</summary>
+        public Vector3 TrayPosition => trayPosition;
 
         public void SetHeld(bool held)
         {
