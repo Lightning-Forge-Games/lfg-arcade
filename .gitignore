@@ -59,5 +59,8 @@ crashlytics-build.properties
 # Build output
 /Builds/
 
-# Photon SDK (large, redownload from the dashboard)
-# Comment this out if you prefer the SDK vendored in the repo
+# Photon SDK. Not vendored: it is a commercial SDK that this repo is not licensed
+# to redistribute, and PhotonAppSettings.asset carries an App ID that bills to an
+# account. Install Fusion from the Photon dashboard and set your own. See README.
+/Assets/Photon/
+/Assets/Photon.meta
